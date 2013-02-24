@@ -44,26 +44,31 @@ void error(char *s);
 
 void main(){
 	//Initialize redirects array
-	int redirects[20];
+	int redirects;
 	int place=0;
 	bool redirection=false;
 
 	char *line;			//declare array for line of input
 	int nbytes=255;			//max number of charachters in that input
 	char *args[128];		//Command line arguments, array of strings.
+	char *fileName;
+
 	//Declare interrupt keys/commands to handlers.
 	signal(SIGABRT, &sighandler);
 	signal(SIGTERM, &sighandler);
 	signal(SIGINT, &sighandler);
-
+top:
 	while (running){
+		redirects=0;
 		child=-1;
 		//Declare space in heap for the line and args	
 		line=(char *)malloc(nbytes+1);
 		args[128]=(char *)malloc(128);
+		fileName=(char *)malloc(nbytes+1);
 		
 		//Declare variables used later in program; Current arg keeps track of how many args there are, j is for debugging
-		int currentArg=0, j;
+		int currentArg=0, j,redirectPlace=0;
+		
 
 		//Print default shell forward. Get input of the line.
 		printf("tms>");
@@ -86,20 +91,23 @@ void main(){
 				
 				//Finished finding an argument, null terminate and increment the currentArg counter, rest place to -1.
 				currentString[++i]='\0';	
-				args[currentArg++]=currentString;
+				
+				//see if that arg was something interesting, aka redirection. Stored as binary representation. 9'b where LSB is ">" and MSB is "&".
+				if (redirection){fileName=currentString;}
+				
+				if (!strcmp(currentString,">\0")){redirection=true;redirects+=(1 << 0);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,"1>\0")){redirection=true;redirects+= (1 << 1);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,"2>\0")){redirection=true;redirects+= (1 << 2);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,">>\0")){redirection=true;redirects+= (1 << 3);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,"2>>\0")){redirection=true;redirects+= (1 << 4);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,"&>\0")){redirection=true;redirects+= (1 << 5);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,"<\0")){redirection=true;redirects+= (1 << 6);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,"|\0")){redirection=true;redirects+= (1 << 7);redirectPlace=currentArg;}
+				else if (!strcmp(currentString,"&\0")){redirection=true;redirects+= (1 << 8);redirectPlace=currentArg;}
+				else if (!redirection) {args[currentArg++]=currentString;}
+				else if (redirection){fileName=currentString;redirection=false;}
 
-				//see if that arg was something interesting, aka redirection
-				if (!strcmp(currentString,">\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,"1>\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,"1>\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,"2>\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,">>\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,"2>>\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,"&>\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,"<\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else if (!strcmp(currentString,"|\0")){redirection=true;redirects[place++]=currentArg-1;}
-				else;
-				if (redirection){printf("Found redirect in arg[%d]=%s\n",currentArg-1,args[currentArg-1]);}				
+				if (redirection){printf("Found redirect in arg[%d]=%s\n",currentArg,currentString);}				
 
 				place=-1;
 				
@@ -118,22 +126,43 @@ void main(){
 
 
 			/**********************Execution******************************/ 
-			int main[2], pid, n;
+			int main[2],second[2], pid1,pid2, n;
 			char buf[BUFFER_SIZE];	
-			//pipe(child);
+			bool toFile=false;
+			FILE *file;
+
 			pipe(main);
-		
+			
+			if (redirects  & (1 << 0) || redirects & (1 << 1) || redirects & (1 << 2) || redirects & (1 << 3) || redirects & (1 << 4) || redirects & (1 << 5)){
+				printf("See redirect in execution\n");				
+				toFile=true;
+				printf("Opening %s.\n",fileName);
+				if (redirects & (1 << 3) || redirects & (1 << 4)){
+					file = fopen(fileName,"a");
+				}
+				else { 
+					file = fopen(fileName,"w");
+				}
+				free(fileName);
+			} 
+			
 			//Go into child
-			if ((pid=fork())==0){	
+			if ((pid1=fork())==0){	
 				//Close standard file procedures
 				close(STDIN_FILENO);
 				close(STDOUT_FILENO);
 				close(STDERR_FILENO);
 			
-	
-				dup2(main[1],STDOUT_FILENO);
-				dup2(main[1],STDERR_FILENO);
-				
+				if (redirects & (1 << 4) || redirects & (1 << 2)){
+					dup2(main[1],STDERR_FILENO);
+				} else if (redirects & (1 << 6)){
+					dup2(main[1],STDERR_FILENO);
+					dup2(main[1],STDOUT_FILENO);
+				} else {
+					dup2(main[1],STDERR_FILENO);
+					dup2(main[1],STDOUT_FILENO);
+				}
+
 				char *tempChar;
 				tempChar=(char *)malloc(20);
 				strcpy(tempChar,"/bin/");
@@ -142,17 +171,26 @@ void main(){
 				free(tempChar);
 				
 				execvp(args[0], args);
-
-				error("Could not exec helloWorld program");	
+				char errorBuffer[50];
+				int ret;
+				ret=sprintf(errorBuffer,"Could not exec program \"%s\"",args[0]);
+				error(errorBuffer);	
 			}
-			child=pid;			
+			child=pid1;			
 			printf("\n\t**NOTE:Spawned %s\n\n",args[0]);
 			close(main[1]);
 
 			n = read(main[0],buf,BUFFER_SIZE);
 			buf[n]=0;
-			printf("%s",buf);
-	
+			if (toFile){
+				printf("Writing to file\n");
+				fprintf(file,"%s",buf);
+				fclose(file);
+			} else {
+				printf("%s",buf);
+			}
+
+
 			free(line);
 			int k=0;
 			for (k=0; k < currentArg; k++){
@@ -161,9 +199,9 @@ void main(){
 			currentArg=0;
 			
 			//Wait for process to finish, no zombie processes.
-			waitpid(pid,NULL,0);
-		}//end if running
-			
+			waitpid(pid1,NULL,0);
+		}//end if 
+		
 	} //end while running	
 	exit(0);
 }
@@ -180,8 +218,7 @@ void error(char *s)
 
 void sighandler(int sig)
 {
-   	if (child!=-1){kill(child,SIGTERM);}
-	printf("Killed process %d\n",child);
+   	if (child!=-1){kill(child,SIGTERM); printf("Killed process %d\n",child);}
 }
 
 /******************************************************************/
