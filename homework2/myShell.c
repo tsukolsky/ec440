@@ -127,6 +127,7 @@ void main(){
 		
 			//add a null terminated arg at the end
 			args[currentArg++]=NULL;
+			secondArgs[currentSecondArg++]=NULL;
 
 			#ifdef CHECKOFF_ONE
 				//For step 1, show that there is something in args[x]
@@ -206,25 +207,20 @@ void main(){
 						dup2(pipedPipeWrite[0],STDIN_FILENO);
 						dup2(readPipe[1],STDERR_FILENO);
 						dup2(readPipe[1],STDOUT_FILENO);
-						close(readPipe[1]);			//close output side of read pipe
-						close(pipedPipeWrite[0]);
+						close(readPipe[0]);			//close input side of read pipe
+						close(pipedPipeWrite[1]);		//close output side or pipedPipeWrite
 						
 						execvp(secondArgs[0],secondArgs);
 						char errorBuffer2[50];
 						int ret2;
 						ret2=sprintf(errorBuffer2,"Could not exec program \"%s\"", secondArgs[0]);
 						error(errorBuffer2);
-					}//end child two
+					}//end child two 
 					
 				}//end if pipe command
-
+				
 				child2=pid2;
 
-				//Close standard file procedures
-				close(STDIN_FILENO);
-				close(STDOUT_FILENO);
-				close(STDERR_FILENO);
-	
 				//Setup inputs.
 
 /**************************Scenarios**********************************\
@@ -248,9 +244,9 @@ Parent send to child: parent close main[0], child closes main[1].
 					close(readPipe[1]);		//close output side of pipe, going to receive string.
 					close(writePipe[0]);		//close input to line
 				} else if (pipeCommand){
-					dup2(pipedPipeWrite[1],STDOUT_FILENO);
 					dup2(pipedPipeWrite[1],STDERR_FILENO);
-					close(pipedPipeWrite[0]);	//close input side of pipe to forked fork
+					dup2(pipedPipeWrite[1],STDOUT_FILENO);	//output of standard out
+					close(pipedPipeWrite[0]);	//close input side
 				} else { 
 					dup2(readPipe[1],STDERR_FILENO);
 					dup2(readPipe[1],STDOUT_FILENO);
@@ -290,6 +286,11 @@ Parent send to child: parent close main[0], child closes main[1].
 					free(args[k]);
 				}
 				currentArg=0;
+				int u=0;
+				for (u=0; u < currentSecondArg; u++){
+					free(secondArgs[u]);
+				}
+				currentSecondArg=0;
 				
 				//Wait for process to finish, no zombie processes.
 				waitpid(pid1,NULL,0);
