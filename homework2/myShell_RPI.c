@@ -1,5 +1,5 @@
 /*******************************************************************************\
-| myShell.c
+| myShell_RPI.c ----THIS IS THE RASBERRY PI VERSION
 | Author: Todd Sukolsky
 | ID: U50387016
 | Initial Build: 2/18/2013
@@ -23,6 +23,11 @@
 |================================================================================
 | *NOTES: (1) Checkoff one is one week into the assignment and requires the demonstration
 |	  of command line parsing.
+|	  (2) This version is somewhat different than the version that runs on an INTEL
+|	      machine. This version does not free the 'args' and 'secondArgs' characters,
+|	      the hose (RPI) kills an ssh connection becasuse of an invalid pointer. Also,
+|	      the outbuf and inbuf are now heap items and must be free'd, otherwise 
+|	      the commands don't output anything.
 \*******************************************************************************/
 
 #include <stdio.h>
@@ -33,12 +38,12 @@
 #include <string.h>
 #include <sys/types.h>
 
-//#define DEBUG0
-//#define CHECKOFF_ONE
-//#define DEBUG1
-//#define DEBUG2
+#define DEBUG0
+#define CHECKOFF_ONE
+#define DEBUG1
+#define DEBUG2
 
-#define BUFFER_SIZE 1024*2		//change second number for more space
+#define BUFFER_SIZE 64*2		//change second number for more space
 
 //Global Variables
 bool running=true;			//Main loop param; infinite loop till exit or memory/system error
@@ -60,9 +65,9 @@ void main(){
 
 	//Variables for input/file io
 	char *line;			//declare array for line of input
-	int nbytes=255;			//max number of charachters in that input
-	char *args[128];		//Command line arguments, array of strings.
-	char *secondArgs[128];		//Command line arguments for more pipes
+	int nbytes=80;			//max number of charachters in that input
+	char *args[10];		//Command line arguments, array of strings.
+	char *secondArgs[10];		//Command line arguments for more pipes
 	char *fileName;
 
 	//Declare interrupt keys/commands to handlers.
@@ -81,8 +86,8 @@ void main(){
 
 		//Declare space in heap for the line and args, secondArgs for piped input, fileName for possible file io	
 		line=(char *)malloc(nbytes+1);
-		args[128]=(char *)malloc(128);
-		secondArgs[128]=(char *)malloc(128);
+		args[10]=(char *)malloc(10);
+		secondArgs[10]=(char *)malloc(10);
 		fileName=(char *)malloc(nbytes+1);
 		
 		//Re-initialize placement variables of arguments
@@ -92,6 +97,9 @@ void main(){
 		printf("tms>");
 		getline(&line,&nbytes,stdin);
 		formatLine(line);
+		#ifdef DEBUG1
+			printf("\t\tGot:%s.\n",line);
+		#endif
 		
 		//If line was an "exit" call, get out; if blank, print new command line; otherwise parse the string
 		if (!strcmp(line,"exit")){running=false; exit(0);}
@@ -106,13 +114,14 @@ void main(){
 		 	do {
 				currentString=(char *)malloc(24);		//find 20 bytes of space
 				do {
+					
 					currentChar=line[++i];			//get character
 					currentString[++place]=currentChar;	//add character to new currentString
-				} while (line[i+1]!=' ' && line[i+1]!='\0' && line[i+1]!='\n' && line[i+1]!=NULL); //Most important is blank space. This line defines what seperates arguments
+				} while (line[i+1]!=' ' && line[i+1]!='\0' && line[i+1]!='\n' && ((int)line[i+1] >= 33 && (int)line[i+1] < 127)); //Most important is blank space. This line defines what seperates arguments
 				
 				//Finished finding an argument, null terminate and increment the currentArg counter, rest place to -1.
 				currentString[++i]='\0';	
-				
+			
 				//see if that arg was something interesting, aka redirection. Stored as binary representation. 9'b where LSB is ">" and MSB is "&".				
 				if (!strcmp(currentString,">\0")){redirection=true;redirects+=(1 << 0);}
 				else if (!strcmp(currentString,"1>\0")){redirection=true;redirects+= (1 << 1);}
@@ -126,8 +135,10 @@ void main(){
 				else if (!redirection) {	//No redirect means the last argument was not redirect, normal argument. 
 					if (!piping){		//No pipe, argument goes into "args" string representing main program call
 						args[currentArg++]=currentString;
+						//strcpy(args[currentArg++],currentString);
 					} else {		//There is a pipe command somewhere before this, add all remaining arguments to "secondArgs" array
 						secondArgs[currentPipedArg++]=currentString;
+						//strcpy(secondArgs[currentPipedArg++],currentString);
 					}
 				}
 				else if (redirection){fileName=currentString;redirection=false;}	//last character was a redirect, means there is a file string coming next. *NOte, we don't discern
@@ -140,10 +151,9 @@ void main(){
 
 				//Reset place holder for next iteration through do while loop
 				place=-1;
-				
-								
+							
 			} while(line[i+1]!='\0');			
-		
+			
 			//add a null terminated arg at the end of args and secondArgs (if there is even secondArgs, still put it there anyway)
 			args[currentArg++]=NULL;
 			secondArgs[currentPipedArg++]=NULL;
@@ -165,7 +175,9 @@ void main(){
 			//Declare variables
 			int readPipe[2],writePipe[2], internalPipeWrite[2], pid1 , pid2, n;		//read is reading from child process, write is writing too, internalPipeWrite is used for pipe command
 			long lSize;
-			char outbuf[BUFFER_SIZE],inbuf[BUFFER_SIZE];					//inbuf for reading from file, outbuf for reading from pipe
+			char *outbuf,*inbuf;					//inbuf for reading from file, outbuf for reading from pipe
+			outbuf=(char *)malloc(BUFFER_SIZE);
+			inbuf=(char *)malloc(BUFFER_SIZE);
 			bool toFile=false,fromFile=false,background=false,pipeCommand=false;		//Bools for what is going on. **Note:"piping" (~line 49,115) is used in this stage
 			FILE *file;									//File that wea re going to be doing
 			
@@ -189,7 +201,7 @@ void main(){
 				else { 
 					file = fopen(fileName,"w");
 				}
-			//	free(fileName);		//free memory
+				free(fileName);		//free memory
 
 			//Using file as an input to a command, open for reading and set flag
 			} else if (redirects & (1 << 6)){
@@ -202,7 +214,8 @@ void main(){
 				
 				fromFile=true;				//Set the flag, free memory
 				printf("Reading %s.\n",fileName);
-			//	free(fileName);
+				free(fileName);
+			
 			//Background op case, set flag. Fork deals with that
 			} else if (redirects & (1 << 8)){
 				background=true;	
@@ -308,17 +321,20 @@ void main(){
 				}
 				
 				//Free variables
-			/*	free(line);
+				free(outbuf);
+				free(inbuf);
+				free(line);
+				//free(currentString);
 				int k=0;
-				for (k=0; k <= currentArg; k++){
+				for (k=0; k < currentArg; k++){
 					free(args[k]);
 				}
 
 				int u=0;
-				for (u=0; u <= currentPipedArg; u++){
+				for (u=0; u < currentPipedArg; u++){
 					free(secondArgs[u]);
 				}
-				*/
+			
 				//Wait for process to finish, no zombie processes.
 				waitpid(pid1,NULL,0);
 			}		

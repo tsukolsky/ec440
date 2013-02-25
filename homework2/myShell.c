@@ -38,7 +38,7 @@
 //#define DEBUG1
 //#define DEBUG2
 
-#define BUFFER_SIZE 1024*2		//change second number for more space
+#define BUFFER_SIZE 128*2		//change second number for more space
 
 //Global Variables
 bool running=true;			//Main loop param; infinite loop till exit or memory/system error
