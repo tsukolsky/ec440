@@ -1,5 +1,5 @@
 /*******************************************************************************\
-| myShell.c
+| myShell_x86.c----THIs is the development script on Ubuntu.
 | Author: Todd Sukolsky
 | ID: U50387016
 | Initial Build: 2/18/2013

@@ -1,9 +1,9 @@
 /*******************************************************************************\
-| myShell_RPI.c ----THIS IS THE RASBERRY PI VERSION
+| myShell_armv7.c----THIS IS THE RASPI VERSION. Same as other file, small tweaks in beggining turned into nothing.
 | Author: Todd Sukolsky
 | ID: U50387016
 | Initial Build: 2/18/2013
-| Last Revised: 2/24/2013
+| Last Revised: 2/25/2013
 | Copyright of Todd Sukolsky
 |================================================================================
 | Description:  This is a C program that makes a custom shell with on a UNIX computer.
@@ -20,14 +20,11 @@
 |		   of variable scope fixed that. De-bloated the thing. Could add a revision
 |		   to file piping. Instead of being read into parent then pushed to a file,
 |		   could append STDOUT of pipe to the actual file...?
+|	     2/25: Changed "args" and "secondArgs" to stack arrays, not heap arrys. Was having
+|		   issues with memory. SHould have fixed the problem.
 |================================================================================
 | *NOTES: (1) Checkoff one is one week into the assignment and requires the demonstration
 |	  of command line parsing.
-|	  (2) This version is somewhat different than the version that runs on an INTEL
-|	      machine. This version does not free the 'args' and 'secondArgs' characters,
-|	      the hose (RPI) kills an ssh connection becasuse of an invalid pointer. Also,
-|	      the outbuf and inbuf are now heap items and must be free'd, otherwise 
-|	      the commands don't output anything.
 \*******************************************************************************/
 
 #include <stdio.h>
@@ -43,7 +40,7 @@
 #define DEBUG1
 #define DEBUG2
 
-#define BUFFER_SIZE 64*2		//change second number for more space
+#define BUFFER_SIZE 256*20		//change second number for more space
 
 //Global Variables
 bool running=true;			//Main loop param; infinite loop till exit or memory/system error
@@ -61,14 +58,16 @@ void main(){
 	//Variables used to identify what special character is input; bools represent whether something is happening or not; next represent current number of input arguments
 	int redirects;
 	int currentArg,currentPipedArg;
-	bool redirection,piping;
+	bool redirection,piping,fileOutput,fileInput,haveInputFile,haveOutputFile;
 
 	//Variables for input/file io
 	char *line;			//declare array for line of input
-	int nbytes=80;			//max number of charachters in that input
-	char *args[10];		//Command line arguments, array of strings.
-	char *secondArgs[10];		//Command line arguments for more pipes
-	char *fileName;
+	int nbytes=255;			//max number of charachters in that input
+	char *args[20];		//Command line arguments, array of strings.
+	char *secondArgs[20];		//Command line arguments for more pipes
+	char *filenameOutput, *filenameInput;	//Maximum of two files that are going to be inputs
+	char *currentString;	
+
 
 	//Declare interrupt keys/commands to handlers.
 	signal(SIGABRT, &sighandler);
@@ -80,15 +79,18 @@ void main(){
 		//Re-initialize variables
 		redirection=false;
 		piping=false;
+		fileOutput=false;
+		fileInput=false;
+		haveInputFile=false;
+		haveOutputFile=false;
 		redirects=0;
 		child1=-1;
 		child2=-1;
 
 		//Declare space in heap for the line and args, secondArgs for piped input, fileName for possible file io	
 		line=(char *)malloc(nbytes+1);
-		args[10]=(char *)malloc(10);
-		secondArgs[10]=(char *)malloc(10);
-		fileName=(char *)malloc(nbytes+1);
+		filenameInput=(char *)malloc(nbytes+1);
+		filenameOutput=(char *)malloc(nbytes+1);
 		
 		//Re-initialize placement variables of arguments
 		currentArg=0; currentPipedArg=0;
@@ -97,9 +99,6 @@ void main(){
 		printf("tms>");
 		getline(&line,&nbytes,stdin);
 		formatLine(line);
-		#ifdef DEBUG1
-			printf("\t\tGot:%s.\n",line);
-		#endif
 		
 		//If line was an "exit" call, get out; if blank, print new command line; otherwise parse the string
 		if (!strcmp(line,"exit")){running=false; exit(0);}
@@ -107,42 +106,55 @@ void main(){
 		else { 
 			/*********************Parse string**************************/
 			char currentChar;		//char being read at the moment
-			char *currentString;		//current string
 			int i=-1, place=-1;		//'i' represents the place in "line" we are. 'place' represents where in "currentString" we are
 		
 			//While the input line isn't the null terminator, read the line.
 		 	do {
-				currentString=(char *)malloc(24);		//find 20 bytes of space
+				currentString=(char *)malloc(20);		//find 20 bytes of space
 				do {
-					
 					currentChar=line[++i];			//get character
 					currentString[++place]=currentChar;	//add character to new currentString
-				} while (line[i+1]!=' ' && line[i+1]!='\0' && line[i+1]!='\n' && ((int)line[i+1] >= 33 && (int)line[i+1] < 127)); //Most important is blank space. This line defines what seperates arguments
+				} while (line[i+1]!=' ' && line[i+1]!='\0' && line[i+1]!='\n'); //Most important is blank space. This line defines what seperates arguments
 				
 				//Finished finding an argument, null terminate and increment the currentArg counter, rest place to -1.
 				currentString[++i]='\0';	
-			
+				
 				//see if that arg was something interesting, aka redirection. Stored as binary representation. 9'b where LSB is ">" and MSB is "&".				
-				if (!strcmp(currentString,">\0")){redirection=true;redirects+=(1 << 0);}
-				else if (!strcmp(currentString,"1>\0")){redirection=true;redirects+= (1 << 1);}
-				else if (!strcmp(currentString,"2>\0")){redirection=true;redirects+= (1 << 2);}
-				else if (!strcmp(currentString,">>\0")){redirection=true;redirects+= (1 << 3);}
-				else if (!strcmp(currentString,"2>>\0")){redirection=true;redirects+= (1 << 4);}
-				else if (!strcmp(currentString,"&>\0")){redirection=true;redirects+= (1 << 5);}
-				else if (!strcmp(currentString,"<\0")){redirection=true;redirects+= (1 << 6);}
+				if (!strcmp(currentString,">\0")){redirection=true;redirects+=(1 << 0);fileOutput=true;}
+				else if (!strcmp(currentString,"1>\0")){redirection=true;redirects+= (1 << 1);fileOutput=true;}
+				else if (!strcmp(currentString,"2>\0")){redirection=true;redirects+= (1 << 2);fileOutput=true;}
+				else if (!strcmp(currentString,">>\0")){redirection=true;redirects+= (1 << 3);fileOutput=true;}
+				else if (!strcmp(currentString,"2>>\0")){redirection=true;redirects+= (1 << 4);fileOutput=true;}
+				else if (!strcmp(currentString,"&>\0")){redirection=true;redirects+= (1 << 5);fileOutput=true;}
+				else if (!strcmp(currentString,"<\0")){redirection=true;redirects+= (1 << 6);fileInput=true;}
 				else if (!strcmp(currentString,"|\0")){redirects+= (1 << 7);piping=true;}
 				else if (!strcmp(currentString,"&\0")){redirects+= (1 << 8);}
 				else if (!redirection) {	//No redirect means the last argument was not redirect, normal argument. 
 					if (!piping){		//No pipe, argument goes into "args" string representing main program call
 						args[currentArg++]=currentString;
-						//strcpy(args[currentArg++],currentString);
 					} else {		//There is a pipe command somewhere before this, add all remaining arguments to "secondArgs" array
 						secondArgs[currentPipedArg++]=currentString;
-						//strcpy(secondArgs[currentPipedArg++],currentString);
 					}
 				}
-				else if (redirection){fileName=currentString;redirection=false;}	//last character was a redirect, means there is a file string coming next. *NOte, we don't discern
-													//whether it's an input file or ourput file here. That comes later, like fear <BANE>
+				else if (redirection){
+					if (fileOutput && !haveOutputFile){
+						filenameOutput=currentString;
+						fileOutput=false;
+						haveOutputFile=true;
+					} else if (fileOutput && haveOutputFile){
+						error("Multiple output files not allowed, using first one.");
+					} else;
+		
+					if (fileInput && !haveInputFile){
+						filenameInput=currentString;
+						fileInput=false;
+						haveInputFile=true;
+					} else if (fileInput && haveInputFile){
+						error("Multiple input files not allowed, using first one.");
+					} else;
+					redirection=false;
+				}
+						
 
 				//Debug line
 				#ifdef DEBUG1
@@ -151,9 +163,10 @@ void main(){
 
 				//Reset place holder for next iteration through do while loop
 				place=-1;
-							
+				
+								
 			} while(line[i+1]!='\0');			
-			
+		
 			//add a null terminated arg at the end of args and secondArgs (if there is even secondArgs, still put it there anyway)
 			args[currentArg++]=NULL;
 			secondArgs[currentPipedArg++]=NULL;
@@ -175,11 +188,10 @@ void main(){
 			//Declare variables
 			int readPipe[2],writePipe[2], internalPipeWrite[2], pid1 , pid2, n;		//read is reading from child process, write is writing too, internalPipeWrite is used for pipe command
 			long lSize;
-			char *outbuf,*inbuf;					//inbuf for reading from file, outbuf for reading from pipe
-			outbuf=(char *)malloc(BUFFER_SIZE);
-			inbuf=(char *)malloc(BUFFER_SIZE);
-			bool toFile=false,fromFile=false,background=false,pipeCommand=false;		//Bools for what is going on. **Note:"piping" (~line 49,115) is used in this stage
-			FILE *file;									//File that wea re going to be doing
+			char *outbuf=(char *)malloc(BUFFER_SIZE);
+			char *inbuf;					//inbuf for reading from file, outbuf for reading from pipe
+			bool toFile=false,fromFile=false,background=false;		//Bools for what is going on. **Note:"piping" (~line 49,115) is used in this stage
+			FILE *fileIn,*fileOut;									//File that wea re going to be doing
 			
 			//Initialize pipes
 			if (pipe(readPipe) <0){error("read pipe");}
@@ -189,35 +201,47 @@ void main(){
 			//First case is any FILE OUTPUT
 			if (redirects  & (1 << 0) || redirects & (1 << 1) || redirects & (1 << 2) || redirects & (1 << 3) || redirects & (1 << 4) || redirects & (1 << 5)){		
 				#ifdef DEBUG2
-					printf("Opening %s.\n",fileName);
+					printf("Opening %s for writing.\n",filenameOutput);
 				#endif
 				//Set printing to file flag to true				
 				toFile=true;
 
 				//Should be appending in these cases, otherwise just open for writing
 				if (redirects & (1 << 3) || redirects & (1 << 4)){
-					file = fopen(fileName,"a");
+					fileOut = fopen(filenameOutput,"a");
 				}
 				else { 
-					file = fopen(fileName,"w");
+					fileOut = fopen(filenameOutput,"w");
 				}
-				free(fileName);		//free memory
+				//free(filenameOutput);		//free memory
 
 			//Using file as an input to a command, open for reading and set flag
-			} else if (redirects & (1 << 6)){
-				file = fopen(fileName,"r");
-				fseek(file,0,SEEK_END);			//find out how long file is
-				lSize=ftell(file);			//load size into a variable
-				rewind(file);				//go abck to top of file
-				size_t result = fread(inbuf,1,lSize,file);	//read into a buffer
-				fclose(file);		
+			}
+			if (redirects & (1 << 6)){
+
+					
+				fileIn = fopen(filenameInput,"r");
+				fseek(fileIn,0,SEEK_END);			//find out how long file is
+				lSize=ftell(fileIn);			//load size into a variable
+				rewind(fileIn);				//go abck to top of file
+				
+				//Allocate memory in inbuf
+				inbuf=(char *)malloc(sizeof(char)*lSize+1);
+				
+				//Read from file
+				size_t result = fread(inbuf,1,lSize,fileIn);	//read into a buffer
+				fclose(fileIn);		
 				
 				fromFile=true;				//Set the flag, free memory
-				printf("Reading %s.\n",fileName);
-				free(fileName);
-			
+				#ifdef DEBUG2
+					printf("Reading %s...found %s with %d size.\n",filenameInput,inbuf,lSize);
+				#endif
+
+				free(filenameInput);
+			}
+
 			//Background op case, set flag. Fork deals with that
-			} else if (redirects & (1 << 8)){
+			if (redirects & (1 << 8)){
 				background=true;	
 			}
 			
@@ -225,7 +249,8 @@ void main(){
 			if ((pid1=fork())==0){	
 				if (background){
 					setpgid(0,0);	//puts child in new process group.
-				} else if (piping){
+				} 
+				if (piping){
 					//Establish pipes
 					if (pipe(internalPipeWrite)<0){error("innter output pipe");}
 
@@ -256,7 +281,9 @@ void main(){
 					child2=pid2;		//declare child2 as the new PID, allows kill command in ctrl+C
 				}//end if pipe command
 				
-
+				close(STDIN_FILENO);
+				close(STDOUT_FILENO);
+				close(STDERR_FILENO);
 				//Setup outputs
 				if (redirects & (1 << 4) || redirects & (1 << 2)){
 					dup2(readPipe[1],STDERR_FILENO);
@@ -270,7 +297,7 @@ void main(){
 					dup2(readPipe[1],STDERR_FILENO);
 					dup2(readPipe[1],STDOUT_FILENO);
 					close(readPipe[1]);		//close output side of pipe, going to receive string.
-					close(writePipe[0]);		//close input to line
+					close(writePipe[1]);		//close input to line
 				} else if (piping){
 					dup2(internalPipeWrite[1],STDERR_FILENO);
 					dup2(internalPipeWrite[1],STDOUT_FILENO);	//output of standard out
@@ -283,6 +310,8 @@ void main(){
 				
 				//Execute the program; if error call an issue function
 				execvp(args[0], args);
+				
+				if (piping){waitpid(pid2,NULL,0);}
 
 				char errorBuffer[50];
 				int ret;
@@ -292,7 +321,6 @@ void main(){
 			} else {
 				#ifdef DEBUG1			
 					printf("\n\t**NOTE:Spawned %s\n\n",args[0]);
-
 				#endif
 				child1=pid1;
 			
@@ -300,6 +328,9 @@ void main(){
 				if (fromFile){
 					close(writePipe[0]);
 					write(writePipe[1],inbuf,lSize);				
+					
+					//Done writing, free buffer now
+					free(inbuf);	
 				}
 
 				//Read from the child process(es)
@@ -310,10 +341,11 @@ void main(){
 				//If printing to file, print to file
 				if (toFile){
 					#ifdef DEBUG2
-						printf("Writing to file\n");
+						printf("Writing to file %s.\n",filenameOutput);
 					#endif
-					fprintf(file,"%s",outbuf);
-					fclose(file);
+					fprintf(fileOut,"%s",outbuf);
+					fclose(fileOut);
+					free(filenameOutput);
 
 				//Printing to terminal
 				} else {	
@@ -321,21 +353,10 @@ void main(){
 				}
 				
 				//Free variables
-				free(outbuf);
-				free(inbuf);
 				free(line);
-				//free(currentString);
-				int k=0;
-				for (k=0; k < currentArg; k++){
-					free(args[k]);
-				}
+				//free(outbuf);
+				free(currentString);
 
-				int u=0;
-				for (u=0; u < currentPipedArg; u++){
-					free(secondArgs[u]);
-				}
-			
-				//Wait for process to finish, no zombie processes.
 				waitpid(pid1,NULL,0);
 			}		
 		}//end if 
@@ -350,14 +371,15 @@ void main(){
 void error(char *s)
 {
   perror(s);
-  exit(1);
+ // exit(1);
 }
 
 /*******************************************************************/
 
 void sighandler(int sig)
 {
-   	if (child1!=-1 || child2!=-1){kill(child1,SIGTERM); kill(child2,SIGTERM);printf("Killed process %d and %d.\n",child1,child2);}
+   	if (child1!=-1){kill(child1,SIGTERM); printf("Killed process %d.\n",child1);}
+	if (child2!=-1){kill(child2,SIGTERM); printf("Killed process %d.\n",child2);}
 }
 
 /******************************************************************/
