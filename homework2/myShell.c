@@ -33,10 +33,10 @@
 #include <string.h>
 #include <sys/types.h>
 
-//#define DEBUG0
-//#define CHECKOFF_ONE
-//#define DEBUG1
-//#define DEBUG2
+#define DEBUG0
+#define CHECKOFF_ONE
+#define DEBUG1
+#define DEBUG2
 
 #define BUFFER_SIZE 128*2		//change second number for more space
 
@@ -310,12 +310,12 @@ void main(){
 				//Free variables
 				free(line);
 				int k=0;
-				for (k=0; k <= currentArg; k++){
+				for (k=0; k < currentArg; k++){
 					free(args[k]);
 				}
 
 				int u=0;
-				for (u=0; u <= currentPipedArg; u++){
+				for (u=0; u < currentPipedArg; u++){
 					free(secondArgs[u]);
 				}
 				
