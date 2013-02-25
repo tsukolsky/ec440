@@ -35,10 +35,10 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define DEBUG0
-#define CHECKOFF_ONE
-#define DEBUG1
-#define DEBUG2
+//#define DEBUG0
+//#define CHECKOFF_ONE
+//#define DEBUG1
+//#define DEBUG2
 
 #define BUFFER_SIZE 256*20		//change second number for more space
 
