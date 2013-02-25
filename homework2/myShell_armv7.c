@@ -188,8 +188,8 @@ void main(){
 			//Declare variables
 			int readPipe[2],writePipe[2], internalPipeWrite[2], pid1 , pid2, n;		//read is reading from child process, write is writing too, internalPipeWrite is used for pipe command
 			long lSize;
-			char *outbuf=(char *)malloc(BUFFER_SIZE);
-			char *inbuf;					//inbuf for reading from file, outbuf for reading from pipe
+			char outbuf[BUFFER_SIZE];
+			char inbuf[BUFFER_SIZE];					//inbuf for reading from file, outbuf for reading from pipe
 			bool toFile=false,fromFile=false,background=false;		//Bools for what is going on. **Note:"piping" (~line 49,115) is used in this stage
 			FILE *fileIn,*fileOut;									//File that wea re going to be doing
 			
@@ -213,20 +213,15 @@ void main(){
 				else { 
 					fileOut = fopen(filenameOutput,"w");
 				}
-				//free(filenameOutput);		//free memory
+				
 
 			//Using file as an input to a command, open for reading and set flag
 			}
 			if (redirects & (1 << 6)){
-
-					
 				fileIn = fopen(filenameInput,"r");
 				fseek(fileIn,0,SEEK_END);			//find out how long file is
 				lSize=ftell(fileIn);			//load size into a variable
 				rewind(fileIn);				//go abck to top of file
-				
-				//Allocate memory in inbuf
-				inbuf=(char *)malloc(sizeof(char)*lSize+1);
 				
 				//Read from file
 				size_t result = fread(inbuf,1,lSize,fileIn);	//read into a buffer
@@ -328,9 +323,6 @@ void main(){
 				if (fromFile){
 					close(writePipe[0]);
 					write(writePipe[1],inbuf,lSize);				
-					
-					//Done writing, free buffer now
-					free(inbuf);	
 				}
 
 				//Read from the child process(es)
@@ -354,8 +346,9 @@ void main(){
 				
 				//Free variables
 				free(line);
-				//free(outbuf);
-				free(currentString);
+
+				//Freeing current string yields error on heap
+				//free(currentString);
 
 				waitpid(pid1,NULL,0);
 			}		

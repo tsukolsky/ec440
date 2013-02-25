@@ -1,5 +1,5 @@
 /*******************************************************************************\
-| myShell_x86.c----THIs is the development script on Ubuntu.
+| myShell_x86.c----THIS IS THE RASPI VERSION. Same as other file, small tweaks in beggining turned into nothing.
 | Author: Todd Sukolsky
 | ID: U50387016
 | Initial Build: 2/18/2013
@@ -35,12 +35,12 @@
 #include <string.h>
 #include <sys/types.h>
 
-//#define DEBUG0
-//#define CHECKOFF_ONE
-//#define DEBUG1
-//#define DEBUG2
+#define DEBUG0
+#define CHECKOFF_ONE
+#define DEBUG1
+#define DEBUG2
 
-#define BUFFER_SIZE 128*2		//change second number for more space
+#define BUFFER_SIZE 256*20		//change second number for more space
 
 //Global Variables
 bool running=true;			//Main loop param; infinite loop till exit or memory/system error
@@ -63,10 +63,12 @@ void main(){
 	//Variables for input/file io
 	char *line;			//declare array for line of input
 	int nbytes=255;			//max number of charachters in that input
-	char *args[128];		//Command line arguments, array of strings.
-	char *secondArgs[128];		//Command line arguments for more pipes
+	char *args[20];		//Command line arguments, array of strings.
+	char *secondArgs[20];		//Command line arguments for more pipes
 	char *filenameOutput, *filenameInput;	//Maximum of two files that are going to be inputs
-	
+	char *currentString;	
+
+
 	//Declare interrupt keys/commands to handlers.
 	signal(SIGABRT, &sighandler);
 	signal(SIGTERM, &sighandler);
@@ -87,8 +89,6 @@ void main(){
 
 		//Declare space in heap for the line and args, secondArgs for piped input, fileName for possible file io	
 		line=(char *)malloc(nbytes+1);
-		//args[128]=(char *)malloc(128);
-		//secondArgs[128]=(char *)malloc(128);
 		filenameInput=(char *)malloc(nbytes+1);
 		filenameOutput=(char *)malloc(nbytes+1);
 		
@@ -106,16 +106,15 @@ void main(){
 		else { 
 			/*********************Parse string**************************/
 			char currentChar;		//char being read at the moment
-			//char *currentString;		//current string
 			int i=-1, place=-1;		//'i' represents the place in "line" we are. 'place' represents where in "currentString" we are
 		
 			//While the input line isn't the null terminator, read the line.
 		 	do {
-				char *currentString=(char *)malloc(24);		//find 20 bytes of space
+				currentString=(char *)malloc(20);		//find 20 bytes of space
 				do {
 					currentChar=line[++i];			//get character
 					currentString[++place]=currentChar;	//add character to new currentString
-				} while (line[i+1]!=' ' && line[i+1]!='\0' && line[i+1]!='\n' && line[i+1]!=NULL); //Most important is blank space. This line defines what seperates arguments
+				} while (line[i+1]!=' ' && line[i+1]!='\0' && line[i+1]!='\n'); //Most important is blank space. This line defines what seperates arguments
 				
 				//Finished finding an argument, null terminate and increment the currentArg counter, rest place to -1.
 				currentString[++i]='\0';	
@@ -189,9 +188,9 @@ void main(){
 			//Declare variables
 			int readPipe[2],writePipe[2], internalPipeWrite[2], pid1 , pid2, n;		//read is reading from child process, write is writing too, internalPipeWrite is used for pipe command
 			long lSize;
-			char *outbuf=(char *)malloc(BUFFER_SIZE);
-			char *inbuf=(char *)malloc(BUFFER_SIZE);					//inbuf for reading from file, outbuf for reading from pipe
-			bool toFile=false,fromFile=false,background=false,pipeCommand=false;		//Bools for what is going on. **Note:"piping" (~line 49,115) is used in this stage
+			char outbuf[BUFFER_SIZE];
+			char inbuf[BUFFER_SIZE];					//inbuf for reading from file, outbuf for reading from pipe
+			bool toFile=false,fromFile=false,background=false;		//Bools for what is going on. **Note:"piping" (~line 49,115) is used in this stage
 			FILE *fileIn,*fileOut;									//File that wea re going to be doing
 			
 			//Initialize pipes
@@ -214,7 +213,7 @@ void main(){
 				else { 
 					fileOut = fopen(filenameOutput,"w");
 				}
-				//free(filenameOutput);		//free memory
+				
 
 			//Using file as an input to a command, open for reading and set flag
 			}
@@ -223,6 +222,8 @@ void main(){
 				fseek(fileIn,0,SEEK_END);			//find out how long file is
 				lSize=ftell(fileIn);			//load size into a variable
 				rewind(fileIn);				//go abck to top of file
+				
+				//Read from file
 				size_t result = fread(inbuf,1,lSize,fileIn);	//read into a buffer
 				fclose(fileIn);		
 				
@@ -304,6 +305,8 @@ void main(){
 				
 				//Execute the program; if error call an issue function
 				execvp(args[0], args);
+				
+				if (piping){waitpid(pid2,NULL,0);}
 
 				char errorBuffer[50];
 				int ret;
@@ -332,7 +335,7 @@ void main(){
 					#ifdef DEBUG2
 						printf("Writing to file %s.\n",filenameOutput);
 					#endif
-					fprintf(fileOut,"%s\0",outbuf);
+					fprintf(fileOut,"%s",outbuf);
 					fclose(fileOut);
 					free(filenameOutput);
 
@@ -343,19 +346,10 @@ void main(){
 				
 				//Free variables
 				free(line);
-				free(outbuf);
-				free(inbuf);
-			/*	int k=0;
-				for (k=0; k < currentArg; k++){
-					free(args[k]);
-				}
 
-				int u=0;
-				for (u=0; u < currentPipedArg; u++){
-					free(secondArgs[u]);
-				}
-				*/
-				//Wait for process to finish, no zombie processes.
+				//Freeing current string yields error on heap
+				//free(currentString);
+
 				waitpid(pid1,NULL,0);
 			}		
 		}//end if 
