@@ -85,11 +85,11 @@ int main(int argc, char *argv[]){
 		if (newsockfd < 0){error("ERROR on accept");}
 		
 		//Print out something
-		n=write(newsockfd,"I am connected and forking to you.",40);
+		//n=write(newsockfd,"I am connected and forking to you.",40);
 		if (n<0){error("ERROR writing to socket...");}	
 		else {
 			bool successful = dealWithConnection(newsockfd);
-			if (successful){printf("I send the correct information.\r\n");}
+			if (successful){printf("I sent the correct information.\r\n");}
 			else{printf("Resolving error...\r\n");}
 		}//end else
 		close(newsockfd);
