@@ -15,6 +15,8 @@
 |		  exec. Initially had an issue with open pipes/blocking, fixed it though by
 |		  closing every single pipe not being used in the master parent. See commits
 |		  from earlier today. (2)Got the exec calls working with correct piping.
+|		  (3) Tested hard, works well. Expanded buffer size but doesn't cause 
+|		      issues. Just need to add the "Advanced feature"...thinking
 |================================================================================
 | *NOTES:(1) Basic socket info was provided by the instructor. Other information on 
 |		  	 sockets can be found at ...
