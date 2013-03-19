@@ -24,6 +24,9 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 
+#define SIZE_MB 1024
+#define NUMBER_OF_MB 10
+
 void error(const char *msg)
 {
     perror(msg);
@@ -32,11 +35,12 @@ void error(const char *msg)
 
 int main(int argc, char *argv[])
 {
+    const int bufferSize=SIZE_MB*NUMBER_OF_MB;
     int sockfd, portno, n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
 
-    char buffer[256];
+    char buffer[bufferSize];
     if (argc < 3) {
        fprintf(stderr,"usage %s hostname port\n", argv[0]);
        exit(0);
@@ -65,7 +69,7 @@ int main(int argc, char *argv[])
     if (n < 0) 
          error("ERROR writing to socket");*/
     bzero(buffer,256);
-    n = read(sockfd,buffer,255);
+    n = read(sockfd,buffer,bufferSize);
     if (n < 0) 
          error("ERROR reading from socket");
     printf("%s\n",buffer);
