@@ -19,6 +19,8 @@
 | *NOTES:(1) Basic socket info was provided by the instructor. Other information on 
 |		  	 sockets can be found at ...
 |		     http://www.microhowto.info/howto/listen_for_and_accept_tcp_connections_in_c.html
+|	 (2) This document is being maintained on github in the location:
+|		     https://github.com/tsukolsky/ec440.git/homework3
 \*******************************************************************************/
 
 #include <stdio.h>
