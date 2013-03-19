@@ -33,7 +33,7 @@
 #include <stdbool.h>
 
 #define ONE_MB 1024
-#define NUMBER_OF_MB 5
+#define NUMBER_OF_MB 10
 
 /*===============================*/
 /*	Forward Declarations	 */
