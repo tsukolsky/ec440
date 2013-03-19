@@ -94,3 +94,54 @@ void error(const char *msg)
     perror(msg);
     exit(1);
 }
+
+void dealWithConnection(int socketHandle){
+	int pid1,pid2,dmesgPipe[2],tailPipe[2],n,n2;
+	char buffer1[BUFFER_SIZE];
+	char *tailCmd[] = {"tail","-l", "50", 0};
+	char *dmesgCmd[] = {"dmesg",0};
+	
+	if (pipe(dmesgPipe) <0){error("Error creating pipe 1.");}
+	if (pipe(tailPipe) < 0){error("Error creating tail pipe.";}
+
+	if ((pid1=fork())==0){//Child process
+		//We are going to run dmesg and pipe that into tail -30.
+		if ((pid2=fork())==0){	//child process (tail)
+			dup2(dmesgPipe[1],1);
+			dup2(dmesgPipe[1],2);
+			
+			close(dmesgPipe[0]);		//close input of the dmesg pipe in parent process
+							//Output goes to tail command which is parent process
+			execvp(dmesgCmd[0],dmesgCmd);	//executes dmesg command and is sent to tail(parent process.)
+
+		} else if (pid2 <0){error("Error creating tail process.");}
+		else {	//tail parent process, this is dmesg
+			//Duplicate an input stream from the dmesgPipe
+			dup2(dmesgPipe[0],0);
+			close(dmesgPipe[1]);		//close otput end of the pipe
+			
+			dup2(tailPipe[1],1);		//clone stdout and stderr for the tail
+			dup2(tailPipe[1],2);
+			close(tailPipe[0]);		//close input end, only writing to the parent process
+			
+			//Execute "tail -l 30" command, output goes to the parent process
+			execvp(tailCmd[0],tailCmd);
+
+			//Wait for child process
+			waitpid(pid2,NULL,0);		//no zombies
+		}	//end parent process (dmesg)
+		
+	} else if (pid1 < 0){error("Error creating tail and dmesg process.");}
+	} else {
+		//This is the real output. We are going to be printing this stuff to the client
+		dup2(tailPipe[0],0);		//stdin is coming from the tailPipe
+		close(tailPipe[1]);		//close output
+
+		n = read(tailPipe[0],buffer1,BUFFER_SIZE);	//read into a buffer that can then be printed back to the socket
+		n2 = write(sockedHandle,buffer1,sizeof(buffer1));	//print to the socket.
+		
+		waitpid(pid1,NULL,0);		//no zombie processes please.
+	}		
+}
+
+
