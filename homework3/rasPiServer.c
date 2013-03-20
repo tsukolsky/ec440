@@ -1,9 +1,8 @@
 /*******************************************************************************\
 | rasPiServer.c
 | Author: Todd Sukolsky
-| ID: U50387016
 | Initial Build: 3/18/2013
-| Last Revised: 3/18/2013
+| Last Revised: 3/20/2013
 |================================================================================
 | Description: This is a server neeeded for ECE 440 homework3. The idea is to implement
 |		a server on the RasPI that listens over an IP and Port, accepts incoming connectiongs
@@ -17,6 +16,9 @@
 |		  from earlier today. (2)Got the exec calls working with correct piping.
 |		  (3) Tested hard, works well. Expanded buffer size but doesn't cause 
 |		      issues. Just need to add the "Advanced feature"...thinking
+|	     3/20-Cleaned code, added more comments. Made a makefile for this thing. If the port
+|		  number is not given on execution, program will ask for it. Killed with ctrl-c.
+|
 |================================================================================
 | *NOTES:(1) Basic socket info was provided by the instructor. Other information on 
 |		  	 sockets can be found at ...
@@ -38,8 +40,12 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
+//Define how large of a buffer we are going to allow
 #define ONE_MB 1024
-#define NUMBER_OF_MB 10
+#define NUMBER_OF_MB 10		//<-------CHange this
+
+//How many requests can be sent into a pending state/queue
+#define PENDING_REQUESTS 20
 
 /*===============================*/
 /*	Forward Declarations	 */
@@ -54,25 +60,26 @@ bool giveThemARiddlePrecious(int socketHandle);
 
 int main(int argc, char *argv[]){
 	//Declare Variables
-        int sockfd, newsockfd, portno;		//Server socket descriptor, client<->server socket descriptor, portno
+        int sockfd, newsockfd, portno;				//Server socket descriptor, client<->server socket descriptor, portno
         socklen_t clilen;					//length of socket name for client
         char buffer[256];					//buffer length we can write to
         struct sockaddr_in serv_addr, cli_addr;
-        int n;								//length used for certain things
+        int n;							//length used during read and write system calls
+
+	//If there are too few arguments provided on command line, say it needs a port number and ask.
         if (argc < 2) {
                 fprintf(stderr,"ERROR, no port provided\n");
-        	exit(1);
-        }
+		printf("Provide port number: ");
+		scanf("%d",&portno);				//get the port number
+        } else{portno = atoi(argv[1]);}
 
 	//Create server socket
-        sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        sockfd = socket(AF_INET, SOCK_STREAM, 0);		//create the socket
         if (sockfd < 0){error("ERROR opening socket");}
-
-        bzero((char *) &serv_addr, sizeof(serv_addr));
-        portno = atoi(argv[1]);
-        serv_addr.sin_family = AF_INET;
-        serv_addr.sin_addr.s_addr = INADDR_ANY;
-        serv_addr.sin_port = htons(portno);
+        bzero((char *) &serv_addr, sizeof(serv_addr));		//zero out server address
+        serv_addr.sin_family = AF_INET;				//assign to TCP
+        serv_addr.sin_addr.s_addr = INADDR_ANY;			//assign server address
+        serv_addr.sin_port = htons(portno);			//assign port number
 	 
         //Bind local address to server socket
         if (bind(sockfd, (struct sockaddr *) &serv_addr,
@@ -80,30 +87,36 @@ int main(int argc, char *argv[]){
         error("ERROR on binding");
 	
         //Now listen
-  	listen(sockfd,5);
+  	listen(sockfd,PENDING_REQUESTS);
 	 
 	//THis is what should continue and contine and continue
 	for (;;){
+		//Accept a new client
 		clilen = sizeof(cli_addr);
 		newsockfd = accept(sockfd, 
                  (struct sockaddr *) &cli_addr, 
                  &clilen);
+
 		//new sockfd has what we are going to be printing too. Can spawn a new process or whatever
 		if (newsockfd < 0){error("ERROR on accept");}
-		n=read(newsockfd,buffer,255);		//get what they are asking for
+		n=read(newsockfd,buffer,255);				//get what they are asking for
 		if (n<0){error("ERROR writing to socket...");}	
+		
+		//There wasn't an error, we receieved some string from the client.
 		else {
 			bool successful=false;
 			if (!strncmp(buffer,"riddle",6)){successful = giveThemARiddlePrecious(newsockfd);}	//give the user a riddle to mess with and answer
 			else if (!strncmp(buffer,"simple",6)){successful = dealWithConnection(newsockfd);}	//print out the "simple" version of the homework, last 30 lines of dmesg
 			if (successful){printf("I sent the correct information.\r\n");}
-			else{printf("Resolving error...\r\n");}
+			else{error("Unable to respond to request.");}
 		}//end else
 		close(newsockfd);
 	 }//end infinite for
      close(sockfd);
      return 0; 
 }
+
+
 
 /*===============================*/
 /*         Functions		 */
@@ -115,12 +128,15 @@ void error(const char *msg)
   // exit(1);
 }
 
+/*================================================================================================================*/
+
 bool dealWithConnection(int socketHandle){
-	const int bufferSize=ONE_MB*NUMBER_OF_MB;
-	int pid1,pid2,dmesgPipe[2],tailPipe[2],n,n2;
-	char buffer1[bufferSize];
-	char *tailCmd[] = {"tail","-n", "30", 0};
-	char *dmesgCmd[] = {"dmesg",0};
+	//Declare Variables.
+	const int bufferSize=ONE_MB*NUMBER_OF_MB;		//how long of a buffer we allow
+	int pid1,pid2,dmesgPipe[2],tailPipe[2],n,n1;		//process ids, pipes, lengths or read/writes
+	char buffer1[bufferSize];				//declare buffer
+	char *tailCmd[] = {"tail","-n", "30", 0};		//give tailCommands as stack array
+	char *dmesgCmd[] = {"dmesg",0};				//give dmesg commands as stack array
 
 	//Make the pipes
 	if (pipe(dmesgPipe) < 0){error("Unable to create dmesg pipe.");return false;}
@@ -159,17 +175,21 @@ bool dealWithConnection(int socketHandle){
 		close(tailPipe[1]);
 
 		//Read from pipe, then forward to socket/client
-		n=read(tailPipe[0],buffer1,bufferSize);				//read
+		n=read(tailPipe[0],buffer1,bufferSize);					//read
 		if (n<0){error("Error receiving data from pipes.");return false;}
-		n2 = write(socketHandle,buffer1,sizeof(buffer1));		//Print to socket
-		if (n2<0){error("Error writing data to socket.");return false;}		
+		n1 = write(socketHandle,buffer1,sizeof(buffer1));			//Print to socket
+		if (n1<0){error("Error writing data to socket.");return false;}		
 		
 		//Wait for child process to finish		
 		waitpid(pid1,NULL,0);
+		
+		//Executed correctly, return true.
 		return true;
-	}else {error("Error forking/creating \"tail\" program."); return false;
-}	
-}
+	}else {error("Error forking/creating \"tail\" program."); return false;}
+	return true;
+}//end function
+
+/*================================================================================================================*/
 
 bool giveThemARiddlePrecious(int socketHandle){
 	FILE *riddleFile;
@@ -185,13 +205,15 @@ bool giveThemARiddlePrecious(int socketHandle){
 
 	//If the flag is set, ask the client if they want to repeat riddles. Yes or yes are recognized, otherwise it will wait for a new connection.
 	if (flagAllRiddlesDone){
+		/*
 		char inBuf[10];
-		//int n1 = write(socketHandle,"Do you want to repeat riddles? I have run out of new ones...",61);
-		//int n2 = read(socketHandle,inBuf,20);
-		//printf("Do you want to repeat riddles? ");
-		//fgets(inBuf,10,stdin);
-		//if (inBuf[0] == 'y' || inBuf[0] == 'Y'){flagAllRiddlesDone=false; riddlesUsed = 0;}
-		//else {return false;}
+		int n1 = write(socketHandle,"Do you want to repeat riddles? I have run out of new ones...",61);
+		int n2 = read(socketHandle,inBuf,20);
+		printf("Do you want to repeat riddles? ");
+		fgets(inBuf,10,stdin);
+		if (inBuf[0] == 'y' || inBuf[0] == 'Y'){flagAllRiddlesDone=false; riddlesUsed = 0;}
+		else {return false;}
+		*/
 		flagAllRiddlesDone=false;
 		riddlesUsed=0;
 	}
@@ -206,40 +228,47 @@ bool giveThemARiddlePrecious(int socketHandle){
 		//Declare variables to be used
 		char riddleFileName[10], riddleBuffer[511];
 		long lSize;
+
 		//Add this whichRiddle to the riddles used
 		riddlesUsed += (1 << whichRiddle);
 	
 		//Open the file, see how long it is, read it till it's over, then close it
-		sprintf(riddleFileName,"%d.txt",whichRiddle);
-
-		riddleFile = fopen(riddleFileName,"r");
-		fseek(riddleFile,0,SEEK_END);	//find out length of file
-		lSize=ftell(riddleFile);
-		rewind(riddleFile);
-	
-		size_t result = fread(riddleBuffer,1,lSize,riddleFile);	//read the file into the buffer
-		fclose(riddleFile);					//close the riddle file
+		sprintf(riddleFileName,"%d.txt",whichRiddle);			//Create file name string
+		riddleFile = fopen(riddleFileName,"r");				//OPen file for reading
+		fseek(riddleFile,0,SEEK_END);					//find out length of file
+		lSize=ftell(riddleFile);					//get size of file
+		rewind(riddleFile);						//go back to beginning of file
+		size_t result = fread(riddleBuffer,1,lSize,riddleFile);		//read the file into the buffer
+		if (result < 0){error("Unable to open riddle file.");return false;}
+		fclose(riddleFile);						//close the riddle file
 		
 		//At this point we have the riddle in riddleBuffer. We now need to show the user what the clue is, then wait for a response
+		//Declare variables		
 		int counter=0, answerCounter=0;
 		char clueBuffer[500], answerBuffer[20],userAnswerBuffer[20],responseBuffer[40];
 	
 		//Parse the file looking for the clue. Seperated by a *
 		while (riddleBuffer[counter] != '*'){clueBuffer[counter] = riddleBuffer[counter];counter++;}
+		
+		//Null terminate the clueBuffer string so it prints correctly. Increment the counter to get to beginning of answer
 		clueBuffer[counter]='\0';
-		counter++;	//increment to get to answer
+		counter++;	
+
 		//Put the answer into the answerBuffer.
-		while ((int)riddleBuffer[counter] > 96 && (int)riddleBuffer[counter] < 123){
+		while ((int)riddleBuffer[counter] > 96 && (int)riddleBuffer[counter] < 123){	//must be lowercase character
 			answerBuffer[answerCounter++]=riddleBuffer[counter];
 			counter++;
 		}
-		answerBuffer[answerCounter]='\0';
+
+		//Null terminate
+		answerBuffer[answerCounter]='\0';			
 
 		//Interact with the user
 		strcat(clueBuffer,"\nAnswer: ");
 		int n0 = write(socketHandle,clueBuffer,strlen(clueBuffer)+10);	//write what the clue is
-		int n2 = read(socketHandle,userAnswerBuffer,20);		//Get their answer
-
+		if (n0<0){error("Error writing to socket."); return false;}
+		int n1 = read(socketHandle,userAnswerBuffer,20);		//Get their answer
+		if (n1 < 0){error("Error reading from socket."); return false;}
 		//See if their answer was correct or not. Send the answer if it was or not	
 		if (!strncmp(userAnswerBuffer,answerBuffer,answerCounter-1)){
 			strcpy(responseBuffer,"Correct!");
@@ -247,14 +276,14 @@ bool giveThemARiddlePrecious(int socketHandle){
 			strcpy(responseBuffer,"Wrong! The answer is ");
 			strcat(responseBuffer,answerBuffer);
 		}
-		int n4 = write(socketHandle,responseBuffer,strlen(responseBuffer));
-		//printf("%s\n",responseBuffer);
+		int n2 = write(socketHandle,responseBuffer,strlen(responseBuffer));
+		if (n2<0){error("Error writing to socket.");return false;}
 	}//end if we are all out of riddles. If we got here, we should be done
 	return true;
 }
 		
 		
-
+/*================================================================================================================*/
 
 
 
