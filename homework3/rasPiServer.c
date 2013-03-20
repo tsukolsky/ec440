@@ -181,18 +181,19 @@ bool giveThemARiddlePrecious(int socketHandle){
 	
 	//Check to see if we have used all the riddles. If we have, set the flag.
 	if (riddlesUsed==255){flagAllRiddlesDone=true;}	
-	else if (riddlesUsed == 0){int n1 = write(socketHandle,"Let's play a game of riddles, shall we? 'And if it loses, we eats it whole!'",79);}
 	else;
 
 	//If the flag is set, ask the client if they want to repeat riddles. Yes or yes are recognized, otherwise it will wait for a new connection.
 	if (flagAllRiddlesDone){
 		char inBuf[10];
-		int n1 = write(socketHandle,"Do you want to repeat riddles? I have run out of new ones...",61);
-		int n2 = read(socketHandle,inBuf,20);
+		//int n1 = write(socketHandle,"Do you want to repeat riddles? I have run out of new ones...",61);
+		//int n2 = read(socketHandle,inBuf,20);
 		//printf("Do you want to repeat riddles? ");
 		//fgets(inBuf,10,stdin);
-		if (inBuf[0] == 'y' || inBuf[0] == 'Y'){flagAllRiddlesDone=false; riddlesUsed = 0;}
-		else {return false;}
+		//if (inBuf[0] == 'y' || inBuf[0] == 'Y'){flagAllRiddlesDone=false; riddlesUsed = 0;}
+		//else {return false;}
+		flagAllRiddlesDone=false;
+		riddlesUsed=0;
 	}
 	
 	//If we need a new riddle and the one we previously got has already been used, pick a new one.
@@ -208,7 +209,7 @@ bool giveThemARiddlePrecious(int socketHandle){
 		//Add this whichRiddle to the riddles used
 		riddlesUsed += (1 << whichRiddle);
 	
-		//Open the file and read the first bit of text with the clue...
+		//Open the file, see how long it is, read it till it's over, then close it
 		sprintf(riddleFileName,"%d.txt",whichRiddle);
 
 		riddleFile = fopen(riddleFileName,"r");
@@ -227,6 +228,7 @@ bool giveThemARiddlePrecious(int socketHandle){
 		while (riddleBuffer[counter] != '*'){clueBuffer[counter] = riddleBuffer[counter];counter++;}
 		clueBuffer[counter]='\0';
 		counter++;	//increment to get to answer
+		//Put the answer into the answerBuffer.
 		while ((int)riddleBuffer[counter] > 96 && (int)riddleBuffer[counter] < 123){
 			answerBuffer[answerCounter++]=riddleBuffer[counter];
 			counter++;
@@ -237,10 +239,8 @@ bool giveThemARiddlePrecious(int socketHandle){
 		strcat(clueBuffer,"\nAnswer: ");
 		int n0 = write(socketHandle,clueBuffer,strlen(clueBuffer)+10);	//write what the clue is
 		int n2 = read(socketHandle,userAnswerBuffer,20);		//Get their answer
-		//printf("%s",clueBuffer);
-		//printf("\nAnswer:");
-		//fgets(userAnswerBuffer,10,stdin);	
-		printf("Got %s\n",userAnswerBuffer);
+
+		//See if their answer was correct or not. Send the answer if it was or not	
 		if (!strncmp(userAnswerBuffer,answerBuffer,answerCounter-1)){
 			strcpy(responseBuffer,"Correct!");
 		} else {
