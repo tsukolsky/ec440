@@ -62,17 +62,26 @@ int main(int argc, char *argv[])
     serv_addr.sin_port = htons(portno);
     if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
         error("ERROR connecting");
-   /* printf("Please enter the message: ");
+    printf("Please enter the message: ");
     bzero(buffer,256);
     fgets(buffer,255,stdin);
     n = write(sockfd,buffer,strlen(buffer));
     if (n < 0) 
-         error("ERROR writing to socket");*/
-    bzero(buffer,256);
-    n = read(sockfd,buffer,bufferSize);
-    if (n < 0) 
-         error("ERROR reading from socket");
-    printf("%s\n",buffer);
+         error("ERROR writing to socket");
+    if (!strncmp(buffer,"simple",6)){n = read(sockfd,buffer,bufferSize); printf("%s\n",buffer);}
+    else if (!strncmp(buffer,"riddle",6)){
+	//Read the riddle and print the clue
+	n = read(sockfd,buffer,bufferSize);
+	printf("%s\n",buffer);
+	//Zero buffer and get user answer
+	bzero(buffer,256);
+	fgets(buffer,20,stdin);
+	//Send the answer
+	n = write(sockfd,buffer,sizeof(buffer));
+	//Clear buffer and see if it's correct
+	bzero(buffer,256);
+	n = read(sockfd,buffer,sizeof(buffer));
+    } else;
     close(sockfd);
     return 0;
 }

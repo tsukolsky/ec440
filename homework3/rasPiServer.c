@@ -234,8 +234,8 @@ bool giveThemARiddlePrecious(int socketHandle){
 		answerBuffer[answerCounter]='\0';
 
 		//Interact with the user
-		int n0 = write(socketHandle,clueBuffer,sizeof(clueBuffer));	//write what the clue is
-		int n1 = write(socketHandle,"\nAnswer: ",10);
+		strcat(clueBuffer,"\nAnswer: ");
+		int n0 = write(socketHandle,clueBuffer,sizeof(clueBuffer)+10);	//write what the clue is
 		int n2 = read(socketHandle,userAnswerBuffer,20);		//Get their answer
 		//printf("%s",clueBuffer);
 		//printf("\nAnswer:");
