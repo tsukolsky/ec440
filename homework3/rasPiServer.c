@@ -46,7 +46,7 @@
 /*===============================*/
 void error(const char *msg);
 bool dealWithConnection(int socketHandle);
-bool giveThemARiddlePrevious(int socketHandle);
+bool giveThemARiddlePrecious(int socketHandle);
 	
 /*===============================*/
 /*      Main Program		 */
@@ -234,8 +234,8 @@ bool giveThemARiddlePrecious(int socketHandle){
 		answerBuffer[answerCounter]='\0';
 
 		//Interact with the user
-		int n1 = write(socketHandle,clueBuffer,sizeof(clueBuffer));	//write what the clue is
-		int n3 = write(socketHandle,"\nAnswer: ",10);
+		int n0 = write(socketHandle,clueBuffer,sizeof(clueBuffer));	//write what the clue is
+		int n1 = write(socketHandle,"\nAnswer: ",10);
 		int n2 = read(socketHandle,userAnswerBuffer,20);		//Get their answer
 		//printf("%s",clueBuffer);
 		//printf("\nAnswer:");
@@ -246,7 +246,7 @@ bool giveThemARiddlePrecious(int socketHandle){
 			strcpy(responseBuffer,"Wrong! The answer is ");
 			strcat(responseBuffer,answerBuffer);
 		}
-		int n3 = write(socketHandle,responseBuffer,sizeof(responseBuffer));
+		int n4 = write(socketHandle,responseBuffer,sizeof(responseBuffer));
 		//printf("%s\n",responseBuffer);
 	}//end if we are all out of riddles. If we got here, we should be done
 	return true;
