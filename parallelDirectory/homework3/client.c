@@ -72,15 +72,16 @@ int main(int argc, char *argv[])
     else if (!strncmp(buffer,"riddle",6)){
 	//Read the riddle and print the clue
 	n = read(sockfd,buffer,bufferSize);
-	printf("%s\n",buffer);
+	printf("%s",buffer);
 	//Zero buffer and get user answer
 	bzero(buffer,256);
 	fgets(buffer,20,stdin);
 	//Send the answer
-	n = write(sockfd,buffer,sizeof(buffer));
+	printf("Sending %s\n",buffer);
+	n = write(sockfd,buffer,strlen(buffer));
 	//Clear buffer and see if it's correct
 	bzero(buffer,256);
-	n = read(sockfd,buffer,sizeof(buffer));
+	n = read(sockfd,buffer,strlen(buffer));
     } else;
     close(sockfd);
     return 0;

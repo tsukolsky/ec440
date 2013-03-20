@@ -235,18 +235,19 @@ bool giveThemARiddlePrecious(int socketHandle){
 
 		//Interact with the user
 		strcat(clueBuffer,"\nAnswer: ");
-		int n0 = write(socketHandle,clueBuffer,sizeof(clueBuffer)+10);	//write what the clue is
+		int n0 = write(socketHandle,clueBuffer,strlen(clueBuffer)+10);	//write what the clue is
 		int n2 = read(socketHandle,userAnswerBuffer,20);		//Get their answer
 		//printf("%s",clueBuffer);
 		//printf("\nAnswer:");
 		//fgets(userAnswerBuffer,10,stdin);	
+		printf("Got %s\n",userAnswerBuffer);
 		if (!strncmp(userAnswerBuffer,answerBuffer,answerCounter-1)){
 			strcpy(responseBuffer,"Correct!");
 		} else {
 			strcpy(responseBuffer,"Wrong! The answer is ");
 			strcat(responseBuffer,answerBuffer);
 		}
-		int n4 = write(socketHandle,responseBuffer,sizeof(responseBuffer));
+		int n4 = write(socketHandle,responseBuffer,strlen(responseBuffer));
 		//printf("%s\n",responseBuffer);
 	}//end if we are all out of riddles. If we got here, we should be done
 	return true;
