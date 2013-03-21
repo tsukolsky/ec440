@@ -49,7 +49,6 @@ int main(int argc, char *argv[])
     	int sockfd, portno, n;
    	struct sockaddr_in serv_addr;
    	struct hostent *server;
-    	char buffer[bufferSize];
 
 	//If port number and/or host isn't given, give usage and exit
    	if (argc < 3) {
@@ -73,45 +72,40 @@ int main(int argc, char *argv[])
     	serv_addr.sin_family = AF_INET;
     	bcopy((char *)server->h_addr,(char *)&serv_addr.sin_addr.s_addr,server->h_length);
     	serv_addr.sin_port = htons(portno);
+   	//Get the socket up and running 	
+	if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0){error("ERROR connecting");}
+    	char buffer[bufferSize];
+	//Ask the user what they want to request from the server, then send it to the server
+    	printf("Please enter the message: ");
+    	bzero(buffer,256);
+   	fgets(buffer,255,stdin);
+  	n = write(sockfd,buffer,strlen(buffer));
+	if (n < 0){error("ERROR writing to socket");}
 
-	//Loop continuously
-	for (;;){
-		//Get socket up and running
-   	 	if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0){error("ERROR connecting");}
-
-		//Ask the user what they want to request from the server, then send it to the server
-   	 	printf("Please enter the message: ");
-   	 	bzero(buffer,256);
-   	 	fgets(buffer,255,stdin);
-   	 	n = write(sockfd,buffer,strlen(buffer));
-  	  	if (n < 0){error("ERROR writing to socket");}
-
-		//No error, if command was "simple", wait for stuff to come back; if "riddle", run through riddle sequence. If exit, terminate. Else do nothing.
-  	  	if (!strncmp(buffer,"simple",6)){
-			n = read(sockfd,buffer,bufferSize); 
-			printf("%s\n",buffer);
-		} else if (!strncmp(buffer,"riddle",6)){
-			//Read the riddle and print the clue	
-			n = read(sockfd,buffer,bufferSize);	
-			printf("%s",buffer);
-		
-			//Zero buffer and get user answer
-			bzero(buffer,256);
-			fgets(buffer,20,stdin);
-		
-			//Send the answer
-			printf("Sending %s\n",buffer);
-			n = write(sockfd,buffer,strlen(buffer));
-
-			//Clear buffer and see if it's correct	
-			bzero(buffer,256);
-			n = read(sockfd,buffer,bufferSize);
-			printf("%s\n\n",buffer);
-		} else if (!strncmp(buffer,"exit",4)){
-			printf("Exiting...\n");
-			exit(0);
-	        }else;
-	    	close(sockfd);
-	}//end forever for.
+	//No error, if command was "simple", wait for stuff to come back; if "riddle", run through riddle sequence. If exit, terminate. Else do nothing.
+  	if (!strncmp(buffer,"simple",6)){
+		n = read(sockfd,buffer,bufferSize); 
+		printf("%s\n",buffer);
+	} else if (!strncmp(buffer,"riddle",6)){
+		//Read the riddle and print the clue	
+		n = read(sockfd,buffer,bufferSize);	
+		printf("%s",buffer);
+	
+		//Zero buffer and get user answer
+		bzero(buffer,256);
+		fgets(buffer,20,stdin);
+	
+		//Send the answer
+		printf("Sending %s\n",buffer);
+		n = write(sockfd,buffer,strlen(buffer));
+		//Clear buffer and see if it's correct	
+		bzero(buffer,256);
+		n = read(sockfd,buffer,bufferSize);
+		printf("%s\n\n",buffer);
+	} else if (!strncmp(buffer,"exit",4)){
+		printf("Exiting...\n");
+		exit(0);
+        }else;
+	close(sockfd);
     	return 0;
 }
