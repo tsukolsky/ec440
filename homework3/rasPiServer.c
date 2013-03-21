@@ -193,7 +193,7 @@ bool dealWithConnection(int socketHandle){
 
 bool giveThemARiddlePrecious(int socketHandle){
 	FILE *riddleFile;
-	static int riddlesUsed=0;
+	static unsigned int riddlesUsed=0;
 	static bool flagAllRiddlesDone=false;
 	
 	srand(time(0));					//set seed for random number
