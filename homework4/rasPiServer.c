@@ -52,12 +52,14 @@ void *actionThread(void *arg);
 
 int main(int argc, char *argv[]){
 	//Declare Variables
-        int sockfd, newsockfd, portno;				//Server socket descriptor, client<->server socket descriptor, portno
+        unsigned int sockfd, newsockfd, portno,ids;				//Server socket descriptor, client<->server socket descriptor, portno
         socklen_t clilen;					//length of socket name for client
         char buffer[256];					//buffer length we can write to
         struct sockaddr_in serv_addr, cli_addr;
         int n;							//length used during read and write system calls
-
+	pthread_t threads;	//thread ID
+	pthread_attr_t	attr;	//attributes of pthread
+	
 	//If there are too few arguments provided on command line, say it needs a port number and ask.
         if (argc < 2) {
                 fprintf(stderr,"ERROR, no port provided\n");
@@ -80,27 +82,23 @@ int main(int argc, char *argv[]){
 	
         //Now listen
   	listen(sockfd,PENDING_REQUESTS);
-	 
+	pthread_attr_init(&attr);
 	//THis is what should continue and contine and continue
 	for (;;){
+		printf("My server is ready.\n");
 		//Accept a new client
 		clilen = sizeof(cli_addr);
 		newsockfd = accept(sockfd, 
                  (struct sockaddr *) &cli_addr, 
                  &clilen);
-
+		printf("A new client arrives...\n");
 		//new sockfd has what we are going to be printing too. Can spawn a new process or whatever
 		if (newsockfd < 0){error("ERROR on accept");}
 		else{
-			//Declare thread variables
-			pthread_t threads;	//thread ID
-			pthread_attr_t	attr;	//attributes of pthread
-			
+			ids=newsockfd;
 			//Make the new thread.
-			int successfulCreate=pthread_create(&threads,NULL,actionThread,(void *)newsockfd);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
-			pthread_join(threads,NULL);
-			if (successfulCreate<0){error("Unable to create thread."); close(newsockfd);}
-
+			pthread_create(&threads,&attr,actionThread,&ids);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
+			pthread_join(threads,NULL);		
 		}//end else
 	 }//end infinite for
      close(sockfd);
@@ -122,8 +120,6 @@ void error(const char *msg)
 /*================================================================================================================*/
 
 void *actionThread(void *arg){
-	printf("In the new thread...");
-
 	int clientSocket;
 
 	const int bufferSize=ONE_MB*NUMBER_OF_MB;
@@ -132,7 +128,7 @@ void *actionThread(void *arg){
 	unsigned int ioReturn;
 
 	//Assign the clientSocket to the argument
-	clientSocket=(unsigned int *)arg;
+	clientSocket=*(unsigned int *)arg;
 
 	//Read the however many lines of data.
 	ioReturn = read(clientSocket,inputBuffer,bufferSize);
@@ -142,12 +138,13 @@ void *actionThread(void *arg){
 	char tempNumberString[10];
 	int tempNumber=0, strLoc=0;
 	
+	printf("strlen(inputBuffer)=%d\n",strlen(inputBuffer));
 	for (i=0; i<strlen(inputBuffer); i++){
 		if ((int)inputBuffer[i]==45 || ((int)inputBuffer[i] <=57 && (int)inputBuffer[i] >=48)){
 			tempNumberString[strLoc++]=inputBuffer[i];
 		} else if (inputBuffer[i]=='\n'){
 			int k=0;
-			for (k=0; k<strLoc; k++){tempNumberString[strLoc]=NULL;}
+			for (k=0; k<strLoc; k++){tempNumberString[strLoc]=(char *)NULL;}
 			strLoc=0;
 			tempNumber=atoi(tempNumberString);
 			sum+=tempNumber;
@@ -157,9 +154,13 @@ void *actionThread(void *arg){
 
 	//We now have the sum, turn itno a string and print to the socket
 	snprintf(outputBuffer,40,"Total of inputted numbers=%d",sum);
-	ioReturn = write(clientSocket,outputBuffer,40);
+	int ioReturn2 = write(clientSocket,outputBuffer,strlen(outputBuffer));
 	
-	//Now look at how many clients we have served and what the overall total is.
+	//Now look at how many clients we have served, and what the overall total is.
+	
+	//Cleanup
+	close(clientSocket);
+	pthread_exit(NULL);
 }
 	
 		
