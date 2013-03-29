@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
         char buffer[256];					//buffer length we can write to
         struct sockaddr_in serv_addr, cli_addr;
         int n;							//length used during read and write system calls
-	pthread_t threads;	//thread ID
+//	pthread_t threads;	//thread ID
 	pthread_attr_t	attr;	//attributes of pthread
 	
 	//Initialize global variables
@@ -97,8 +97,10 @@ int main(int argc, char *argv[]){
         //Now listen
   	listen(sockfd,PENDING_REQUESTS);
 	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_JOINABLE);
 	//THis is what should continue and contine and continue
 	for (;;){
+		pthread_t threads;
 		printf("My server is ready.\n");
 		//Accept a new client
 		clilen = sizeof(cli_addr);
@@ -113,8 +115,6 @@ int main(int argc, char *argv[]){
 			//Make the new thread.
 			pthread_create(&threads,&attr,actionThread,&ids);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
 			//pthread_join(threads,NULL);				//dON'T join. iF we do we won't be multithreaded, but will wait for current thread to finish before moving on.		
-			pthread_attr_destroy(&attr);		
-			pthread_attr_init(&attr);
 		}//end else
 	 }//end infinite for
      close(sockfd);
@@ -136,6 +136,8 @@ void error(const char *msg)
 /*================================================================================================================*/
 
 void *actionThread(void *arg){
+	//Tell them we are in a new thread precious
+	printf("\tIn a new thread...\n");
 	int clientSocket;
 
 	const int bufferSize=ONE_MB*NUMBER_OF_MB;
@@ -172,17 +174,17 @@ void *actionThread(void *arg){
 	int ioReturn2 = write(clientSocket,outputBuffer,strlen(outputBuffer));
 	
 	//Now look at how many clients we have served, and what the overall total is.
-	pthread_mutex_lock(&mutexSum);
+//	pthread_mutex_lock(&mutexSum);
 	theData.overallSum += sum;	//add our sum to the overall sum
 	theData.clientsServed += 1;	//add one to the number of users served
 	unsigned int clients=theData.clientsServed;
 	int totalSum=theData.overallSum;
-	pthread_mutex_unlock(&mutexSum);
+//	pthread_mutex_unlock(&mutexSum);
 
 	bzero(outputBuffer,bufferSize);
-	snprintf(outputBuffer,256,"\n\tTotal Clients Served\tOverall Sum\n\t=====================\t===========\n\t\t  %d\t\t%d\n",clients,totalSum);
+	snprintf(outputBuffer,256,"\n\tTotal Clients Served=%d, Overall Sum=%d\n",clients,totalSum);
 	ioReturn2 = write(clientSocket,outputBuffer,strlen(outputBuffer));
-
+	
 	//Cleanup
 	close(clientSocket);
 	pthread_exit(NULL);
