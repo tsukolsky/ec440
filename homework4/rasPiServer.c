@@ -47,6 +47,16 @@ void error(const char *msg);
 void *actionThread(void *arg);
 	
 /*===============================*/
+/*	Global Structure	 */
+/*===============================*/
+typedef struct{
+	unsigned long *overallSum;
+	unsigned long *clientsServed;
+} OVERALLDATA;
+
+OVERALLDATA theData;
+pthread_mutex_t mutexSum;		//define place that the mutex occurs
+/*===============================*/
 /*      Main Program		 */
 /*===============================*/
 
@@ -60,6 +70,11 @@ int main(int argc, char *argv[]){
 	pthread_t threads;	//thread ID
 	pthread_attr_t	attr;	//attributes of pthread
 	
+	//Initialize global variables
+	pthread_mutex_init(&mutexSum,NULL);
+	theData.overallSum=0;
+	theData.clientsServed=0;
+
 	//If there are too few arguments provided on command line, say it needs a port number and ask.
         if (argc < 2) {
                 fprintf(stderr,"ERROR, no port provided\n");
@@ -98,7 +113,8 @@ int main(int argc, char *argv[]){
 			ids=newsockfd;
 			//Make the new thread.
 			pthread_create(&threads,&attr,actionThread,&ids);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
-			pthread_join(threads,NULL);		
+			//pthread_join(threads,NULL);				//dON'T join. iF we do we won't be multithreaded, but will wait for current thread to finish before moving on.		
+			pthread_attr_destroy(&attr);		
 		}//end else
 	 }//end infinite for
      close(sockfd);
@@ -157,7 +173,11 @@ void *actionThread(void *arg){
 	int ioReturn2 = write(clientSocket,outputBuffer,strlen(outputBuffer));
 	
 	//Now look at how many clients we have served, and what the overall total is.
-	
+	pthread_mutex_lock(&mutexSum);
+	theData.overallSum += sum;	//add our sum to the overall sum
+	theData.clientsServed += 1;	//add one to the number of users served
+	pthread_mutex_unlock(&mutexSum);
+
 	//Cleanup
 	close(clientSocket);
 	pthread_exit(NULL);
