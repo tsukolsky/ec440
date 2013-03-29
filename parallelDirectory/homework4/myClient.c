@@ -34,7 +34,7 @@
 
 //Define length of buffer
 #define SIZE_MB 1024
-#define NUMBER_OF_MB 10
+#define NUMBER_OF_MB 1
 
 void error(const char *msg)
 {
@@ -84,8 +84,9 @@ int main(int argc, char *argv[])
 
 	//Get response from the server.
 	bzero(buffer,bufferSize);
-	n = read(sockfd,buffer,40);
-
+	int n2 = read(sockfd,buffer,40);
+	if (n2<0){error("Error receiving from socket");}
+	printf("%s\n",buffer);
 	close(sockfd);
     	return 0;
 }
