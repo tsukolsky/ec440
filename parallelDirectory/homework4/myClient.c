@@ -3,24 +3,16 @@
 | Original Author: Unknown -->provided by professor
 | Last Revised by: Todd Sukolsky
 | Initial Build: unknown
-| Last Revised: 3/20/2013
+| Last Revised: 3/28/2013
 |================================================================================
-| Description: This file emulates a client and is used to test "server.c". This
-|	file was obtained from the professor. This should be used
-|	to test the server.c
+| Description: This file emulates a client and is used to test "rasPiServer.c". This
+|	file was obtained from the professor as a tutorial from sockets and has been
+|	appended and manipulated by Todd Sukolsky for his own purposes.
 |--------------------------------------------------------------------------------
-| Revisions: 3/18-Pulled from professor. Tested with "server.c" and then somewhat
-|	   	  tweaked for my own use. Changing how it works slightly with no
-|		  string to be sent originally.
-|	     3/19-Changed functionality to accept rasPi running "dmesg | tail -n 30". 
-|		  Works like a charm. (2) Made the advanced feature be a riddle game.
-|		  Changed read/write characteristics and must recognize what command
-|		  was given to the server.
-|	     3/20-Cleaned code, added more comments for explanation.
-|		
+| Revisions: 3/28- Initial remake. Tweaked from homework3 version
 |================================================================================
 | *NOTES: (1) This file is maintained by Todd Sukolsky via github.
-|		   https://github.com/tsukolsky/ec440.git/homework3/
+|		   https://github.com/tsukolsky/ec440.git/homework4/
 \*******************************************************************************/
 
 #include <stdio.h>
