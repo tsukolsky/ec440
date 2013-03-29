@@ -76,12 +76,8 @@ int main(int argc, char *argv[]){
 	theData.overallSum=0;
 	theData.clientsServed=0;
 
-	//If there are too few arguments provided on command line, say it needs a port number and ask.
-        if (argc < 2) {
-                fprintf(stderr,"ERROR, no port provided\n");
-		printf("Provide port number: ");
-		scanf("%d",&portno);				//get the port number
-        } else{portno = atoi(argv[1]);}
+	//Declare the port number.
+        portno=55000;
 
 	//Create server socket
         sockfd = socket(AF_INET, SOCK_STREAM, 0);		//create the socket
