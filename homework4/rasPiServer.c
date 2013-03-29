@@ -100,7 +100,7 @@ int main(int argc, char *argv[]){
 			pthread_attr_t	attr;	//attributes of pthread
 			
 			//Make the new thread.
-			int successfulCreate=pthread_create(&threads,NULL,actionThread,&newsockfd);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
+			int successfulCreate=pthread_create(&threads,&attr,actionThread,&newsockfd);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
 			if (!successfulCreate){error("Unable to create thread."); close(newsockfd);}
 
 		}//end else
