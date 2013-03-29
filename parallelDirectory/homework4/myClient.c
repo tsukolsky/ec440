@@ -23,10 +23,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+#include <pthread.h>
 
 //Define length of buffer
 #define SIZE_MB 1024
 #define NUMBER_OF_MB 1
+
+void *connectToServer(void *arg);
 
 void error(const char *msg)
 {
@@ -34,51 +37,76 @@ void error(const char *msg)
     exit(0);
 }
 
-int main(int argc, char *argv[])
+int main(){
+	//Three different things
+	char *message1= "5\n4\n3\n2\n1\n";				//Sum=15
+	char *message2="10\n20\n30\n";					//Sum=60
+	char *message3="-5\n-4\n-3\n-2\n-1\n";				//Sum=-15
+	//Create 3 threads to ask different things.
+    	pthread_attr_t attr1,attr2,attr3;
+    	pthread_t thread1,thread2,thread3;
+	pthread_attr_init(&attr1);
+	pthread_attr_init(&attr2);
+	pthread_attr_init(&attr3);
+	pthread_create(&thread1,&attr1,connectToServer,(void *)message1);
+	pthread_create(&thread2,&attr2,connectToServer,(void *)message2);
+	pthread_create(&thread3,&attr3,connectToServer,(void *)message3);
+
+	//Join them before exiting...
+	pthread_join(thread1,NULL);
+	pthread_join(thread2,NULL);
+	pthread_join(thread3,NULL);
+
+	//Exit main
+	printf("\nShould be finished now...\n");
+	return 0;
+}
+
+void *connectToServer(void *arg)
 {
+	printf("In thread...\n");
 	//Declare buffer size
         const int bufferSize=SIZE_MB*NUMBER_OF_MB;
     	int sockfd, portno, n;
    	struct sockaddr_in serv_addr;
    	struct hostent *server;
 
-	//If port number and/or host isn't given, give usage and exit
-   	if (argc < 3) {
-       		fprintf(stderr,"usage %s hostname port\n", argv[0]);
-       		exit(0);
-    	}
+    	char receiveBuffer[bufferSize];
+	char *sendBuffer;
+	sendBuffer=(char *)arg;
+	//ServerIP= 10.42.0.31:55000
+	portno=55000;
+	server=gethostbyname("10.42.0.31");
 	
-	//Turn port number string into decimal
-    	portno = atoi(argv[2]);
-
 	//Create socket
     	sockfd = socket(AF_INET, SOCK_STREAM, 0);
     	if (sockfd < 0){error("ERROR opening socket");}
     	
-	//Declare server as hostname
-	server = gethostbyname(argv[1]);
-	if (server == NULL) {error("ERROR, no such host\n");}
-
 	//Create the server socket
     	bzero((char *) &serv_addr, sizeof(serv_addr));
     	serv_addr.sin_family = AF_INET;
     	bcopy((char *)server->h_addr,(char *)&serv_addr.sin_addr.s_addr,server->h_length);
     	serv_addr.sin_port = htons(portno);
-   	//Get the socket up and running 	
+   	
+	//Get the socket up and running 	
 	if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0){error("ERROR connecting");}
-    	char buffer[bufferSize];
-	//Ask the user what they want to request from the server, then send it to the server
-    	printf("Sending \"5,4,3,2,1,-3,3\" to server for adding. Sum should be 15...\n");
-    	bzero(buffer,bufferSize);
-   	strcpy(buffer,"5\n4\n3\n2\n1\n-3\n3\n\0");
-  	n = write(sockfd,buffer,strlen(buffer));
+
+	//Send the string of numbers to the server
+  	n = write(sockfd,sendBuffer,strlen(sendBuffer));
 	if (n < 0){error("ERROR writing to socket");}
 
 	//Get response from the server.
-	bzero(buffer,bufferSize);
-	int n2 = read(sockfd,buffer,40);
+	bzero(receiveBuffer,bufferSize);
+	int n2 = read(sockfd,receiveBuffer,40);
 	if (n2<0){error("Error receiving from socket");}
-	printf("%s\n",buffer);
+	printf("%s\n",receiveBuffer);
+	
+	//Now get second line of transmission
+	bzero(receiveBuffer,strlen(receiveBuffer));
+	n2=read(sockfd,receiveBuffer,256);
+	if (n2<0){error("Error receiving from socket");}
+	else{printf("%s\n",receiveBuffer);}
+
 	close(sockfd);
-    	return 0;
+	pthread_exit(NULL);
 }
