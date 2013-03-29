@@ -1,0 +1,1 @@
+To compile everything, run 'make'. NOte the client creates three threads and sends messages to the server. THe messages send are STORED IN THE PROGRAM, all you have to do is execute the program. Server and client automatically go to 10.42.0.31:55000 which is how my machine is set up. 
