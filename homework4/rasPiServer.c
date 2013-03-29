@@ -35,7 +35,7 @@
 
 //Define how large of a buffer we are going to allow
 #define ONE_MB 1024
-#define NUMBER_OF_MB 10		//<-------CHange this
+#define NUMBER_OF_MB 1		//<-------CHange this
 
 //How many requests can be sent into a pending state/queue
 #define PENDING_REQUESTS 20
@@ -50,8 +50,8 @@ void *actionThread(void *arg);
 /*	Global Structure	 */
 /*===============================*/
 typedef struct{
-	unsigned long *overallSum;
-	unsigned long *clientsServed;
+	long overallSum;
+	unsigned long clientsServed;
 } OVERALLDATA;
 
 OVERALLDATA theData;
@@ -92,8 +92,7 @@ int main(int argc, char *argv[]){
 	 
         //Bind local address to server socket
         if (bind(sockfd, (struct sockaddr *) &serv_addr,
-     	sizeof(serv_addr)) < 0) 
-        error("ERROR on binding");
+     	sizeof(serv_addr)) < 0){error("ERROR on binding");}
 	
         //Now listen
   	listen(sockfd,PENDING_REQUESTS);
@@ -115,6 +114,7 @@ int main(int argc, char *argv[]){
 			pthread_create(&threads,&attr,actionThread,&ids);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
 			//pthread_join(threads,NULL);				//dON'T join. iF we do we won't be multithreaded, but will wait for current thread to finish before moving on.		
 			pthread_attr_destroy(&attr);		
+			pthread_attr_init(&attr);
 		}//end else
 	 }//end infinite for
      close(sockfd);
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]){
 void error(const char *msg)
 {
     perror(msg);
-  // exit(1);
+    exit(1);
 }
 
 /*================================================================================================================*/
@@ -154,7 +154,6 @@ void *actionThread(void *arg){
 	char tempNumberString[10];
 	int tempNumber=0, strLoc=0;
 	
-	printf("strlen(inputBuffer)=%d\n",strlen(inputBuffer));
 	for (i=0; i<strlen(inputBuffer); i++){
 		if ((int)inputBuffer[i]==45 || ((int)inputBuffer[i] <=57 && (int)inputBuffer[i] >=48)){
 			tempNumberString[strLoc++]=inputBuffer[i];
@@ -169,14 +168,20 @@ void *actionThread(void *arg){
 	}//end for
 
 	//We now have the sum, turn itno a string and print to the socket
-	snprintf(outputBuffer,40,"Total of inputted numbers=%d",sum);
+	snprintf(outputBuffer,40,"\n\tYour sum=%d\n",sum);
 	int ioReturn2 = write(clientSocket,outputBuffer,strlen(outputBuffer));
 	
 	//Now look at how many clients we have served, and what the overall total is.
 	pthread_mutex_lock(&mutexSum);
 	theData.overallSum += sum;	//add our sum to the overall sum
 	theData.clientsServed += 1;	//add one to the number of users served
+	unsigned int clients=theData.clientsServed;
+	int totalSum=theData.overallSum;
 	pthread_mutex_unlock(&mutexSum);
+
+	bzero(outputBuffer,bufferSize);
+	snprintf(outputBuffer,256,"\n\tTotal Clients Served\tOverall Sum\n\t=====================\t===========\n\t\t  %d\t\t%d\n",clients,totalSum);
+	ioReturn2 = write(clientSocket,outputBuffer,strlen(outputBuffer));
 
 	//Cleanup
 	close(clientSocket);
