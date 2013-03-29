@@ -91,17 +91,15 @@ int main(int argc, char *argv[]){
 
 		//new sockfd has what we are going to be printing too. Can spawn a new process or whatever
 		if (newsockfd < 0){error("ERROR on accept");}
-		if (n<0){error("ERROR writing to socket...");}	
-		
-		//There wasn't an error, we receieved some string from the client.
-		else {
+		else{
 			//Declare thread variables
 			pthread_t threads;	//thread ID
 			pthread_attr_t	attr;	//attributes of pthread
 			
 			//Make the new thread.
-			int successfulCreate=pthread_create(&threads,&attr,actionThread,&newsockfd);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
-			if (!successfulCreate){error("Unable to create thread."); close(newsockfd);}
+			int successfulCreate=pthread_create(&threads,NULL,actionThread,(void *)newsockfd);	//make a new thread that executes my function "actionThread" with the socket file descriptor.
+			pthread_join(threads,NULL);
+			if (successfulCreate<0){error("Unable to create thread."); close(newsockfd);}
 
 		}//end else
 	 }//end infinite for
@@ -124,7 +122,9 @@ void error(const char *msg)
 /*================================================================================================================*/
 
 void *actionThread(void *arg){
-	unsigned int clientSocket;
+	printf("In the new thread...");
+
+	int clientSocket;
 
 	const int bufferSize=ONE_MB*NUMBER_OF_MB;
 	char inputBuffer[bufferSize];
@@ -132,7 +132,7 @@ void *actionThread(void *arg){
 	unsigned int ioReturn;
 
 	//Assign the clientSocket to the argument
-	clientSocket=*(unsigned int *)arg;
+	clientSocket=(unsigned int *)arg;
 
 	//Read the however many lines of data.
 	ioReturn = read(clientSocket,inputBuffer,bufferSize);

@@ -22,8 +22,11 @@ int main()
 
     /* Create independent threads each of which will execute function */
 
-     iret1=pthread_create(&thread1,&attr,print_message_function,(void*)message1);
-     iret2=pthread_create(&thread2,&attr,print_message_function,(void*)message2);
+     iret1=pthread_create(&thread1,NULL,print_message_function,(void*)message1);
+     iret2=pthread_create(&thread2,NULL,print_message_function,(void*)message2);
+
+     pthread_join(thread1,NULL);
+     pthread_join(thread2,NULL);
 
      /* Wait till threads are complete before main continues. Unless we  */
      /* wait we run the risk of executing an exit which will terminate   */
