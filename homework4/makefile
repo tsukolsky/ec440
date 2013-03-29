@@ -2,15 +2,15 @@
 ## makefile
 ##
 ## Author: Todd Sukolsky
-## Initial Build: 3/20/13
-## Last Revised: 3/20/13
+## Initial Build: 3/29/13
+## Last Revised: 3/29/13
 ## Copyright of Todd Sukolsky
 ##
 ############################################################################################
 ## Description: This is a makefile for the rasPi server and client.
 ##
 ############################################################################################
-## Revisions: 3/20- Initial build
+## Revisions: 3/29- Initial build
 ############################################################################################
 ## Command summary:
 ##      	"make"----------------->creates client and server programs
@@ -23,20 +23,20 @@
 
 ##Variables
 CC=gcc
-CARGS=-c -Wall
+CARGS=-pthread -Wall -c
 
 ##Protocols
 all: serverAndClient
 
 serverAndClient: rasPiServer.o myClient.o
-	$(CC) -Wall rasPiServer.o -o theServer
-	$(CC) -Wall myClient.o -o theClient
+	$(CC) -Wall -pthread rasPiServer.o -o theServer
+	$(CC) -Wall -pthread myClient.o -o theClient
 
 server: rasPiServer.o
-	$(CC) -Wall rasPiServer.o -o theServer
+	$(CC) -Wall -pthread rasPiServer.o -o theServer
 
 client: myClient.o
-	$(CC) -Wall myClient.o -o theClient
+	$(CC) -Wall -pthread myClient.o -o theClient
 
 rasPiServer.o:	rasPiServer.c
 	$(CC) $(CARGS) rasPiServer.c
