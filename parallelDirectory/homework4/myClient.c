@@ -29,6 +29,9 @@
 #define SIZE_MB 1024
 #define NUMBER_OF_MB 1
 
+//Declare a mutex lock for writing out the variables
+pthread_mutex_t readingFromServer;
+
 void *connectToServer(void *arg);
 
 void error(const char *msg)
@@ -43,19 +46,17 @@ int main(){
 	char *message2="10\n20\n30\n";					//Sum=60
 	char *message3="-5\n-4\n-3\n-2\n-1\n";				//Sum=-15
 	//Create 3 threads to ask different things.
-    	pthread_attr_t attr1,attr2,attr3;
-    	pthread_t thread1,thread2,thread3;
-	pthread_attr_init(&attr1);
-	pthread_attr_init(&attr2);
-	pthread_attr_init(&attr3);
-	pthread_create(&thread1,&attr1,connectToServer,(void *)message1);
-	pthread_create(&thread2,&attr2,connectToServer,(void *)message2);
-	pthread_create(&thread3,&attr3,connectToServer,(void *)message3);
-
-	//Join them before exiting...
-	pthread_join(thread1,NULL);
-	pthread_join(thread2,NULL);
-	pthread_join(thread3,NULL);
+    	pthread_attr_t attr;
+    	pthread_t threads[3];
+	pthread_attr_init(&attr);
+	pthread_mutex_init(&readingFromServer,NULL);
+	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_JOINABLE);
+	pthread_create(&threads[0],&attr,connectToServer,(void *)message1);
+	pthread_join(threads[0],NULL);
+	pthread_create(&threads[1],&attr,connectToServer,(void *)message2);
+	pthread_join(threads[1],NULL);
+	pthread_create(&threads[2],&attr,connectToServer,(void *)message3);
+	pthread_join(threads[2],NULL);
 
 	//Exit main
 	printf("\nShould be finished now...\n");
