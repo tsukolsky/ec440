@@ -10,6 +10,10 @@
 |	store the string in a static global variable.
 |--------------------------------------------------------------------------------
 | Revisions:
+|	4/3- Initial build. Got everything to work. Small mistake using "copy_from_user"
+|	     in the 'read' part, but was able to overcome. Issue is from the return value,
+|	     something isn't correct (to small or to large) so it keeps reading. Checked off
+|	     for part1.
 |================================================================================
 | *NOTES: (1)First part of assignment is basic char driver that reads string and writes
 |	     string. Second part is adding timing and morse code.
@@ -88,27 +92,30 @@ static int device_release(struct inode *inode, struct file *file){
 
 //Called when something opens, then tries to read from the module
 static ssize_t device_read(struct file *filp,char __user *buffer, size_t length, loff_t * offset){	
-/*	int numberOfBytesRead=0;
-	if (*msg_Ptr==0){
-		return 0;
-	}
 
-	while (length && *msg_Ptr){
-		put_user(*(msg_Ptr++),buffer++);
-		length--;
-		numberOfBytesRead++;
-	}
-
-	return numberOfBytesRead;
-*/
-	int r;
+/*	int r;
 	int L;
 	printk("READ:Entering\n");
 	L=strlen(message_Ptr);
-	r=copy_to_user(buffer,message_Ptr,L);
+	r=copy_to_user(buffer,message_Ptr,BUF_LEN);
 	printk("READ:Ends with %d characters.\n",L);
-	L=length;
-	return L;
+	return length;*/
+	/*
+	 * Number of bytes actually written to the buffer 
+	 */
+	int bytes_read = 0;
+	if (*message_Ptr == 0)
+		return 0;
+
+	
+	while (length && *message_Ptr) {
+		put_user(*(message_Ptr++), buffer++);
+
+		length--;
+		bytes_read++;
+	}
+
+	return bytes_read;
 }
 
 //Called when something tries to write to the device.
@@ -121,9 +128,9 @@ static ssize_t device_write(struct file *filp, const char __user *buffer, size_t
 	} else {wr_sz=BUF_LEN;}
 	
 	r=copy_from_user(message_Ptr,buffer,wr_sz);
-	printk("WRITE:Rx buf = %s\n",message_Ptr);
+	printk( KERN_ALERT"WRITE:Rx buf = %s\n",message_Ptr);
 	
-	return SUCCESS;
+	return wr_sz;
 }
 
 
