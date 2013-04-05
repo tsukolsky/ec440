@@ -28,8 +28,8 @@ int init_module(void);
 void cleanup_module(void);
 static int device_open(struct inode *, struct file *);
 static int device_release(struct inode *, struct file *);
-static ssize_t device_read(struct file *, char *, size_t, loff_t *);
-static ssize_t device_write(struct file *, const char *, size_t, loff_t *);
+static ssize_t device_read(struct file *, char __user *, size_t, loff_t *);
+static ssize_t device_write(struct file *, const char __user *, size_t, loff_t *);
 
 
 #define SUCCESS 	0
@@ -42,14 +42,15 @@ static ssize_t device_write(struct file *, const char *, size_t, loff_t *);
 static int Major;
 static int Device_Open=0;
 
-static char msg[BUF_LEN]="Miles to go before I sleep.\n";			//Initial banner message.
-static char *msg_Ptr;
+static char message[BUF_LEN];
+static char *message_Ptr;
 
 static struct file_operations fops = {
 	.read = device_read,
 	.write = device_write,
 	.open = device_open,
-	.release = device_release
+	.release = device_release,
+	.owner = THIS_MODULE
 };
 
 //Module that is called when function is loaded
@@ -60,7 +61,8 @@ int init_module(void){
 		printk(KERN_ALERT "Registering char device failed with major = %d\n",Major);
 		return Major;
 	}
-
+	printk("My major number is %d\n",Major);
+	strncpy(message,"Miles to go before I sleep.\n\0",32);
 	return SUCCESS;
 }//end init_module
 
@@ -73,24 +75,20 @@ void cleanup_module(void){
 //Module called when we try and open (with 'cat').
 static int device_open(struct inode *inode,struct file *file){
 	if (Device_Open){return -EBUSY;}
-	
+	message_Ptr=message;
 	Device_Open++;
-	try_module_get(THIS_MODULE);
-	msg_Ptr=msg;
-
 	return SUCCESS;
 }
 
 //Module Called what a process closes the device file
 static int device_release(struct inode *inode, struct file *file){
 	Device_Open--;
-	module_put(THIS_MODULE);
 	return 0;
 }
 
 //Called when something opens, then tries to read from the module
-static ssize_t device_read(struct file *filp,char *buffer, size_t length, loff_t * offset){	
-	int numberOfBytesRead=0;
+static ssize_t device_read(struct file *filp,char __user *buffer, size_t length, loff_t * offset){	
+/*	int numberOfBytesRead=0;
 	if (*msg_Ptr==0){
 		return 0;
 	}
@@ -102,18 +100,30 @@ static ssize_t device_read(struct file *filp,char *buffer, size_t length, loff_t
 	}
 
 	return numberOfBytesRead;
+*/
+	int r;
+	int L;
+	printk("READ:Entering\n");
+	L=strlen(message_Ptr);
+	r=copy_to_user(buffer,message_Ptr,L);
+	printk("READ:Ends with %d characters.\n",L);
+	L=length;
+	return L;
 }
 
 //Called when something tries to write to the device.
-static ssize_t device_write(struct file *filp, const char *buffer, size_t length, loff_t * offset){
-/*	int numberOfBytesWritten=0;
-	while (length && *buffer){
-		get_user(*(msg_Ptr++),buffer++);
-		length--;
-		numberOfBytesWritten=0;
-	}
-*/	printk(KERN_ALERT "This isn't working yet...\n");
-	return -EINVAL;
+static ssize_t device_write(struct file *filp, const char __user *buffer, size_t length, loff_t * offset){
+	int r,wr_sz;
+	printk("WRITE:Entering\n");
+	memset(message,'\0',BUF_LEN);
+	if (length <= BUF_LEN){
+		wr_sz= length;
+	} else {wr_sz=BUF_LEN;}
+	
+	r=copy_from_user(message_Ptr,buffer,wr_sz);
+	printk("WRITE:Rx buf = %s\n",message_Ptr);
+	
+	return SUCCESS;
 }
 
 
