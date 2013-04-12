@@ -103,6 +103,8 @@ static ssize_t device_read(struct file *filp,char __user *buffer, size_t length,
 	/*
 	 * Number of bytes actually written to the buffer 
 	 */
+
+	//THish is second method. First method repeatedly returns the string over and over, infinite looping.
 	int bytes_read = 0;
 	if (*message_Ptr == 0)
 		return 0;
