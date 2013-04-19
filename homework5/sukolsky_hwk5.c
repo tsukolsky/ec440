@@ -39,15 +39,14 @@
 #include <asm/gpio.h>           /* Needed for gpio calls */
 
 //Defines for various things
-#define TIMER_NUM 100
-#define MY_GPIO 25
+#define TIMER_NUM 	10		//max number of timers needed
+#define MY_GPIO 	25
 #define SUCCESS 	0
 #define DEVICE_NAME	"morse-communicator"
 #define BUF_LEN		32
-#define desiredMajor 	31337
 #define DRIVER_AUTHOR	"Todd Sukolsky"
 #define DRIVER_DESC	"This driver is meant to output morse code on an LED attached to GPIO25 on the Rasberry Pi"
-
+#define LENGTH_CONSTANT 5
 /****************************************/
 /*	Forward Declarations		*/
 /****************************************/
@@ -67,16 +66,53 @@ static struct file_operations fops = {
 };
 
 
-
-
-
-
 /****************************************/
 /*		Globals			*/
 /****************************************/
-static int majorNumber = desiredMajor;
-static int Device_Open=0;
+//Lookup tables. Duration of DASH is 3(dot). A space between letters in a word is equal to a DASH. Space between dot/dash is a dot. Space between words=7dots
+//D represents D
+unsigned int numTimers[26]={3,7,7,5,1,7,5,7,3,7,5,7,3,3,5,7,7,5,5,1,5,7,5,7,7,7};
+unsigned int a[3]={1,1,3};
+unsigned int b[7]={3,1,1,1,1,1,1};
+unsigned int c[7]={3,1,1,1,3,1,1};
+unsigned int d[5]={3,1,1,1,1};
+unsigned int e[1]={1};
+unsigned int f[7]={1,1,1,1,3,1,1};
+unsigned int g[5]={3,1,3,1,1};
+unsigned int h[7]={1,1,1,1,1,1,1};
+unsigned int I[3]={1,1,1,};
+unsigned int j[7]={1,1,3,1,3,1,3};
+unsigned int k[5]={3,1,1,1,3};
+unsigned int l[7]={1,1,3,1,1,1,1};
+unsigned int m[3]={3,1,3};
+unsigned int n[3]={3,1,1};
+unsigned int o[5]={3,1,3,1,3};
+unsigned int p[7]={1,1,3,1,3,1,1};
+unsigned int q[7]={3,1,3,1,1,1,3};
+unsigned int R[5]={1,1,3,1,1};
+unsigned int s[5]={1,1,1,1,1};
+unsigned int t[1]={3};
+unsigned int u[5]={1,1,1,1,3};
+unsigned int v[7]={1,1,1,1,1,1,3};
+unsigned int w[5]={1,1,3,1,3};
+unsigned int x[7]={3,1,1,1,1,1,3};
+unsigned int y[7]={3,1,1,1,3,1,3};
+unsigned int z[7]={3,1,3,1,1,1,1};
+unsigned int zero[9]={3,1,3,1,3,1,3,1,3};
+unsigned int one[9]={1,1,3,1,3,1,3,1,3};
+unsigned int two[9]={1,1,1,1,3,1,3,1,3};
+unsigned int three[9]={1,1,1,1,1,1,3,1,3};
+unsigned int four[9]={1,1,1,1,1,1,1,1,3};
+unsigned int five[9]={1,1,1,1,1,1,1,1,1};
+unsigned int six[9]={3,1,1,1,1,1,1,1,1};
+unsigned int seven[9]={3,1,3,1,1,1,1,1,1};
+unsigned int eight[9]={3,1,3,1,3,1,1,1,1};
+unsigned int nine[9]={3,1,3,1,3,1,3,1,1};
 
+//Useful variables
+static unsigned int majorNumber = 69;
+static unsigned int current_gpio_level=0;
+static int Device_Open=0;
 /* length of the current message */
 static int timer_len;
 static unsigned capacity=BUF_LEN;
@@ -86,8 +122,8 @@ static char *globalBuffer_Ptr;
 
 // For my timer
 static struct timer_list timers[TIMER_NUM];		//array of timers, 100 possible
-static int realdelay[TIMER_NUM];			//read delay, 100 long.
-static int num = 0;					//Number of timers that are currently active.
+static unsigned int numberOfTimers=0;
+static unsigned int howManyTimersCompleted=0;
 
 //Take care of module license.
 MODULE_LICENSE("GPL");
@@ -106,8 +142,18 @@ expire
 //Declare Method Used when timer expires
 void expire(unsigned long arg)
 {
-	printk(KERN_ALERT "Message : %s\n",globalBuffer_Ptr);				//Print the message in the buffer.		
- 	gpio_set_value(MY_GPIO,0);
+	howManyTimersCompleted++;
+	if (howManyTimersCompleted==numberOfTimers){
+		current_gpio_level=0;
+		printk(KERN_ALERT"Finished\n");
+		numberOfTimers=0;
+		howManyTimersCompleted=0;
+	} else {
+		current_gpio_level=!current_gpio_level;
+		printk(KERN_ALERT"Toggle\n");
+	}
+//	printk(KERN_ALERT "Message : %s\n",globalBuffer_Ptr);				//Print the message in the buffer.		
+	gpio_set_value(MY_GPIO,current_gpio_level);
 }//end expire
 
 
@@ -124,7 +170,8 @@ int init_module(void){
  	   	return -1;
   	} else {
  		printk(KERN_INFO "got gpio!\n");
- 		gpio_direction_output(MY_GPIO,0); // set GPIO direction and initial value
+ 		current_gpio_level=0;
+		gpio_direction_output(MY_GPIO,current_gpio_level); // set GPIO direction and initial value		
 	}//end gpio request
 
 	int result=0;
@@ -150,6 +197,7 @@ cleanup_module
 //Module that is called when the function is unloaded
 void cleanup_module(void){
 	//Release GPIO
+	current_gpio_level=0;
  	gpio_set_value(MY_GPIO,0); // turn off GPIO
  	gpio_free(MY_GPIO);
  	printk(KERN_INFO "Goodbye, LED\n");
@@ -224,29 +272,365 @@ device_write
 ********************/
 //Called when something tries to write to the device.
 static ssize_t device_write(struct file *filp, const char __user *buffer, size_t length, loff_t * offset){
-	int r,wr_sz;
+	int r,wr_sz,i=0;
 	printk("WRITE:Entering\n");
-	memset(globalBuffer,0,capacity);
-	if (length <= BUF_LEN){
-		wr_sz= length;
-	} else {wr_sz=BUF_LEN;}
+	wr_sz=length;
+	char *string;
+	string=kmalloc(2,GFP_KERNEL);
+	if (length <=2){
+		wr_sz=length;
+	} else {wr_sz=2;}
 	
-	if (wr_sz > 1){
-		r=copy_from_user(globalBuffer_Ptr,buffer,wr_sz);
+	r=copy_from_user(string,buffer,wr_sz);
+	
+	int whichLetter=(int)string[0];
+	if (whichLetter >= 65 && whichLetter <= 90){
+		whichLetter+=22;		//converts to lowercase.
 	}
-	printk( KERN_ALERT"WRITE:Rx buf = %s\n",globalBuffer_Ptr);
+	if ((whichLetter >= 48 && whichLetter <= 57) || (whichLetter <=122 && whichLetter >=97)){
+		if (whichLetter >=48 && whichLetter <= 57){
+			numberOfTimers=9;
+		} else {
+			numberOfTimers=numTimers[whichLetter-97];
+		}
+		switch (whichLetter){
+			case 48: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+zero[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 49: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+one[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 50: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+two[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 51: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+three[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 52: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+four[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 53: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+five[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 54: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+six[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 55: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+seven[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 56: {
+				for (i=0; i<9;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+eight[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 57: {
+				for (i=0; i<9;i++){
+						init_timer(&timers[i]);
+					timers[i].expires=jiffies+nine[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);			}
+				break;
+				}
+			case 97: {
+				for (i=0; i<3;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+a[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 98: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+b[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 99: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+c[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 100: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+d[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 101: {
+				for (i=0; i<1;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+e[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 102: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+f[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 103: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+g[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 104: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+h[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 105: {
+				for (i=0; i<3;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+I[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 106: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+j[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 107: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+k[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 108: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+l[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 109: {
+				for (i=0; i<3;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+m[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 110: {
+				for (i=0; i<3;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+n[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 111: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+o[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 112: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+p[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 113: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+q[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 114: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+R[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 115: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+s[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 116: {
+				for (i=0; i<1;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+t[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 117: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+u[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 118: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+v[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 119: {
+				for (i=0; i<5;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+w[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 120: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+x[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);			}
+				break;
+				}
+			case 121: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+y[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);				}
+				break;
+				}
+			case 122: {
+				for (i=0; i<7;i++){
+					init_timer(&timers[i]);
+					timers[i].expires=jiffies+z[i]*LENGTH_CONSTANT*10;
+					timers[i].data=i;
+					timers[i].function=expire;
+					add_timer(&timers[i]);	
+				}
+				break;
+				}
+			default: break;
+		}//end switch
+		current_gpio_level=1;
+	}//end if we got a valid character
+	else {
+		current_gpio_level=0;
+	}
+
+	howManyTimersCompleted=0;
 	
-	realdelay[num]=5;	//however many seconds you want it to wait. Timer interprets this as ms.
-
-	//Here is where we need to set up timers.
-	init_timer(&timers[num]);
-	timers[num].expires = jiffies + realdelay[num]*100;
-	timers[num].data = num;
-	timers[num].function = expire;
-	add_timer(&timers[num]);
- 	gpio_set_value(MY_GPIO,1);
-	num++;
-
+	//Bring the level to where it should be
+	gpio_set_value(MY_GPIO,current_gpio_level);
 	timer_len = *offset;
 	return wr_sz;
 }
