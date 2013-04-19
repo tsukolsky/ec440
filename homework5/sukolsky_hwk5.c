@@ -46,7 +46,7 @@
 #define BUF_LEN		32
 #define DRIVER_AUTHOR	"Todd Sukolsky"
 #define DRIVER_DESC	"This driver is meant to output morse code on an LED attached to GPIO25 on the Rasberry Pi"
-#define LENGTH_CONSTANT 5
+#define LENGTH_CONSTANT 20
 /****************************************/
 /*	Forward Declarations		*/
 /****************************************/
@@ -72,42 +72,42 @@ static struct file_operations fops = {
 //Lookup tables. Duration of DASH is 3(dot). A space between letters in a word is equal to a DASH. Space between dot/dash is a dot. Space between words=7dots
 //D represents D
 unsigned int numTimers[26]={3,7,7,5,1,7,5,7,3,7,5,7,3,3,5,7,7,5,5,1,5,7,5,7,7,7};
-unsigned int a[3]={1,1,3};
-unsigned int b[7]={3,1,1,1,1,1,1};
-unsigned int c[7]={3,1,1,1,3,1,1};
-unsigned int d[5]={3,1,1,1,1};
+unsigned int a[3]={1,2,5};
+unsigned int b[7]={3,4,5,6,7,8,9};
+unsigned int c[7]={3,4,5,6,9,10,11};
+unsigned int d[5]={3,4,5,6,7};
 unsigned int e[1]={1};
-unsigned int f[7]={1,1,1,1,3,1,1};
-unsigned int g[5]={3,1,3,1,1};
-unsigned int h[7]={1,1,1,1,1,1,1};
-unsigned int I[3]={1,1,1,};
-unsigned int j[7]={1,1,3,1,3,1,3};
-unsigned int k[5]={3,1,1,1,3};
-unsigned int l[7]={1,1,3,1,1,1,1};
-unsigned int m[3]={3,1,3};
-unsigned int n[3]={3,1,1};
-unsigned int o[5]={3,1,3,1,3};
-unsigned int p[7]={1,1,3,1,3,1,1};
-unsigned int q[7]={3,1,3,1,1,1,3};
-unsigned int R[5]={1,1,3,1,1};
-unsigned int s[5]={1,1,1,1,1};
+unsigned int f[7]={1,2,3,4,7,8,9};
+unsigned int g[5]={3,4,7,8,9};
+unsigned int h[7]={1,2,3,4,5,6,7};
+unsigned int I[3]={1,2,3,};
+unsigned int j[7]={1,2,5,6,9,10,13};
+unsigned int k[5]={3,4,5,6,9};
+unsigned int l[7]={1,2,5,6,7,8,9};
+unsigned int m[3]={3,4,7};
+unsigned int n[3]={3,4,5};
+unsigned int o[5]={3,4,7,8,11};
+unsigned int p[7]={1,2,5,6,9,10,11};
+unsigned int q[7]={3,4,7,8,9,10,11};
+unsigned int R[5]={1,2,5,6,7};
+unsigned int s[5]={1,2,3,4,5};
 unsigned int t[1]={3};
-unsigned int u[5]={1,1,1,1,3};
-unsigned int v[7]={1,1,1,1,1,1,3};
-unsigned int w[5]={1,1,3,1,3};
-unsigned int x[7]={3,1,1,1,1,1,3};
-unsigned int y[7]={3,1,1,1,3,1,3};
-unsigned int z[7]={3,1,3,1,1,1,1};
-unsigned int zero[9]={3,1,3,1,3,1,3,1,3};
-unsigned int one[9]={1,1,3,1,3,1,3,1,3};
-unsigned int two[9]={1,1,1,1,3,1,3,1,3};
-unsigned int three[9]={1,1,1,1,1,1,3,1,3};
-unsigned int four[9]={1,1,1,1,1,1,1,1,3};
-unsigned int five[9]={1,1,1,1,1,1,1,1,1};
-unsigned int six[9]={3,1,1,1,1,1,1,1,1};
-unsigned int seven[9]={3,1,3,1,1,1,1,1,1};
-unsigned int eight[9]={3,1,3,1,3,1,1,1,1};
-unsigned int nine[9]={3,1,3,1,3,1,3,1,1};
+unsigned int u[5]={1,2,3,4,7};
+unsigned int v[7]={1,2,3,4,5,6,9};
+unsigned int w[5]={1,2,5,6,9};
+unsigned int x[7]={3,4,5,6,7,8,11};
+unsigned int y[7]={3,4,5,6,9,10,13};
+unsigned int z[7]={3,4,7,8,9,10,11};
+unsigned int zero[9]={3,4,7,8,11,12,15,16,19};
+unsigned int one[9]={1,2,5,6,9,10,13,14,17};
+unsigned int two[9]={1,2,3,4,7,8,11,12,15};
+unsigned int three[9]={1,2,3,4,5,6,9,10,13};
+unsigned int four[9]={1,2,3,4,5,6,7,8,11};
+unsigned int five[9]={1,2,3,4,5,6,7,8,9};
+unsigned int six[9]={3,4,5,6,7,8,9,10,11};
+unsigned int seven[9]={3,4,7,8,9,10,11,12,13};
+unsigned int eight[9]={3,4,7,8,11,12,13,14,15};
+unsigned int nine[9]={3,4,7,8,11,12,15,16,19};
 
 //Useful variables
 static unsigned int majorNumber = 69;
