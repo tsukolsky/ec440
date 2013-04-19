@@ -32,12 +32,15 @@ static ssize_t mytimer_write(struct file *filp,
 		const char *buf, size_t count, loff_t *f_pos);
 static void mytimer_exit(void);
 static int mytimer_init(void);
+
 // For my timer
 static struct timer_list mytimer[TIMER_NUM];
 static char message[TIMER_NUM][128];
 static int realdelay[TIMER_NUM];
 static char output[130];
 static int num = 0;					//Number of timers that are currently active.
+
+
 /* Structure that declares the usual file */
 /* access functions */
 struct file_operations mytimer_fops = {
@@ -82,7 +85,7 @@ static int mytimer_init(void)
  	   return -1;
   	} else {
  	printk(KERN_INFO "got gpio!\n");
- 	gpio_direction_output(MY_GPIO,1); // set GPIO direction and initial value
+ 	gpio_direction_output(MY_GPIO,0); // set GPIO direction and initial value
 	}
 	int result;
 
@@ -153,7 +156,7 @@ static ssize_t mytimer_read(struct file *filp, char *buf,
 							size_t count, loff_t *f_pos)
 { 
 	//Show that we have read
-	printk(KERN_ALERT,"read called: process id %, command %s\n",current->pid,current->comm);
+	printk(KERN_ALERT "read called: process id %, command %s\n",current->pid,current->comm);
 
 	int i;
 	signed long remain[100];
@@ -197,7 +200,7 @@ static ssize_t mytimer_write(struct file *filp, const char *buf,
 				    size_t count, loff_t *f_pos)
 {
 
-	printk(KERN_ALERT,"write called: process id %, command %s\n",current->pid,current->comm);
+	printk(KERN_ALERT "write called: process id %, command %s\n",current->pid,current->comm);
 	//We received a string and a time to wait until the string is printed.	
 	int i=0;
         int j, k;
