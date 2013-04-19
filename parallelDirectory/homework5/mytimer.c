@@ -16,6 +16,10 @@
 #include <linux/sched.h>
 #include <linux/timer.h>
 
+//For GPIO use
+#include <asm/gpio.h>           /* Needed for gpio calls */
+#define MY_GPIO 25
+
 #define TIMER_NUM 100
 MODULE_LICENSE("Dual BSD/GPL");
 
@@ -33,7 +37,7 @@ static struct timer_list mytimer[TIMER_NUM];
 static char message[TIMER_NUM][128];
 static int realdelay[TIMER_NUM];
 static char output[130];
-static int num = 0;
+static int num = 0;					//Number of timers that are currently active.
 /* Structure that declares the usual file */
 /* access functions */
 struct file_operations mytimer_fops = {
@@ -63,9 +67,20 @@ static int mytimer_len;
 void expire(unsigned long arg)
 {
 	printk(KERN_ALERT "Message : %s\n", message[arg]);
+ 	gpio_set_value(MY_GPIO,0);
 }
 static int mytimer_init(void)
 {
+
+	//Get the GPIO
+ 	int status;
+ 	if ((status=gpio_request(MY_GPIO,"FINGERS CROSSED"))<0){
+ 	   printk(KERN_INFO "grio_request failed \n");
+ 	   return -1;
+  	} else {
+ 	printk(KERN_INFO "got gpio!\n");
+ 	gpio_direction_output(MY_GPIO,1); // set GPIO direction and initial value
+
 	int result;
 
 	/* Registering device */
@@ -97,6 +112,11 @@ fail:
 
 static void mytimer_exit(void)
 {
+	//Release GPIO
+ 	 gpio_set_value(MY_GPIO,0); // turn off GPIO
+ 	 gpio_free(MY_GPIO);
+ 	 printk(KERN_INFO "Goodbye, LED\n");
+
 	/* Freeing the major number */
 	unregister_chrdev(mytimer_major, "mytimer");
 
@@ -129,6 +149,9 @@ static int mytimer_release(struct inode *inode, struct file *filp)
 static ssize_t mytimer_read(struct file *filp, char *buf, 
 							size_t count, loff_t *f_pos)
 { 
+	//Show that we have read
+	printk(KERN_ALERT,"read called: process id %, command %s\n",current->pid,current->comm);
+
 	int i;
 	signed long remain[100];
 	char tbuf[128], *tbptr = tbuf;
@@ -170,12 +193,16 @@ static ssize_t mytimer_read(struct file *filp, char *buf,
 static ssize_t mytimer_write(struct file *filp, const char *buf,
 				    size_t count, loff_t *f_pos)
 {
+
+	printk(KERN_ALERT,"write called: process id %, command %s\n",current->pid,current->comm);
+	//We received a string and a time to wait until the string is printed.	
 	int i=0;
         int j, k;
         int bound;
 	int delay[4];
 	char tbuf[256], *tbptr = tbuf;
         int swap, flag;
+	//If buffer is full, return no process.
         if (*f_pos+count >= capacity)
 	{
 		printk(KERN_ALERT
@@ -183,6 +210,7 @@ static ssize_t mytimer_write(struct file *filp, const char *buf,
 			current->pid, current->comm, count);
 		return -ENOSPC;
 	}
+	//Copy from the user, get buffer and bring into fpos
 	if (copy_from_user(mytimer_buffer + *f_pos, buf, count))
 	{
 		return -EFAULT;
@@ -200,7 +228,7 @@ static ssize_t mytimer_write(struct file *filp, const char *buf,
 		swap=0;
 	}
 
-		// Split the number from the message
+	// Split the delay in the message
 	while (buf[i] != ' ')
 	{
 		delay[i] = buf[i] - '0';
@@ -215,6 +243,7 @@ static ssize_t mytimer_write(struct file *filp, const char *buf,
 		realdelay[num] = delay[j++] + realdelay[num]*10;
 	}
 
+	//If there is a message to be displayed with a timer, call the flag and assign a swap variable to that. Break from the loop.
 	for (k = 0; k <= num; k++ )
 	{
 		if (strcmp(buf + bound,message[k]) == 0)
@@ -226,9 +255,11 @@ static ssize_t mytimer_write(struct file *filp, const char *buf,
 		}
 		else flag = 0;
 	}
+	//What should be printed when the timer expires.
 	sprintf(message[num], "%s", buf + bound);
 
 	
+	//If there is something we need to time, initialize a timer.
 	if (flag == 1)
 	{	
 
@@ -238,12 +269,13 @@ static ssize_t mytimer_write(struct file *filp, const char *buf,
 		mytimer[swap].data = swap;
 		mytimer[swap].function = expire;
 		add_timer(&mytimer[swap]);
+ 		gpio_set_value(MY_GPIO,1);
 		flag = 0;
 		swap = 0;
 	}
 	else
 	{
-
+ 		gpio_set_value(MY_GPIO,1);
 		init_timer(&mytimer[num]);
 		mytimer[num].expires = jiffies + realdelay[num]*100;
 		mytimer[num].data = num;
