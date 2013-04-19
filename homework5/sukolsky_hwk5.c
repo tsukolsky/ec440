@@ -46,7 +46,7 @@
 #define BUF_LEN		32
 #define DRIVER_AUTHOR	"Todd Sukolsky"
 #define DRIVER_DESC	"This driver is meant to output morse code on an LED attached to GPIO25 on the Rasberry Pi"
-#define LENGTH_CONSTANT 20
+#define LENGTH_CONSTANT 10
 /****************************************/
 /*	Forward Declarations		*/
 /****************************************/
@@ -628,6 +628,8 @@ static ssize_t device_write(struct file *filp, const char __user *buffer, size_t
 	}
 
 	howManyTimersCompleted=0;
+
+	kfree(string);
 	
 	//Bring the level to where it should be
 	gpio_set_value(MY_GPIO,current_gpio_level);
