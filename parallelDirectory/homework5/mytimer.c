@@ -64,11 +64,14 @@ static int mytimer_major = 61;
 static char *mytimer_buffer;
 /* length of the current message */
 static int mytimer_len;
+
+//Declare Method Used when timer expires
 void expire(unsigned long arg)
 {
 	printk(KERN_ALERT "Message : %s\n", message[arg]);
  	gpio_set_value(MY_GPIO,0);
-}
+}//end expire
+
 static int mytimer_init(void)
 {
 
@@ -80,7 +83,7 @@ static int mytimer_init(void)
   	} else {
  	printk(KERN_INFO "got gpio!\n");
  	gpio_direction_output(MY_GPIO,1); // set GPIO direction and initial value
-
+	}
 	int result;
 
 	/* Registering device */
@@ -108,7 +111,7 @@ static int mytimer_init(void)
 fail: 
 	mytimer_exit(); 
 	return result;
-}
+}//end init
 
 static void mytimer_exit(void)
 {
@@ -128,7 +131,7 @@ static void mytimer_exit(void)
 
 	printk(KERN_ALERT "Removing mytimer module.\n");
 
-}
+}//end exit
 
 static int mytimer_open(struct inode *inode, struct file *filp)
 {
@@ -136,7 +139,7 @@ static int mytimer_open(struct inode *inode, struct file *filp)
 		current->pid, current->comm);
 	/* Success */
 	return 0;
-}
+}//end open
 
 static int mytimer_release(struct inode *inode, struct file *filp)
 {
@@ -144,7 +147,7 @@ static int mytimer_release(struct inode *inode, struct file *filp)
 		current->pid, current->comm);
 	/* Success */
 	return 0;
-}
+}//end release
 
 static ssize_t mytimer_read(struct file *filp, char *buf, 
 							size_t count, loff_t *f_pos)
@@ -188,7 +191,7 @@ static ssize_t mytimer_read(struct file *filp, char *buf,
 	/* Changing reading position as best suits */ 
 	*f_pos += count; 
 	return count; 
-}
+}//end read
 
 static ssize_t mytimer_write(struct file *filp, const char *buf,
 				    size_t count, loff_t *f_pos)
@@ -288,4 +291,4 @@ static ssize_t mytimer_write(struct file *filp, const char *buf,
 	mytimer_len = *f_pos;
 
 	return count;
-}
+}//end write
